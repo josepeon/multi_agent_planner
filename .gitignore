@@ -1,0 +1,31 @@
+# Byte-compiled / cache files
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Environment
+.env
+.venv/
+venv/
+env/
+
+# VSCode
+.vscode/
+
+# macOS
+.DS_Store
+
+# Python virtualenv
+*.egg-info/
+*.egg
+
+# Logs and outputs
+*.log
+
+# API keys or credentials
+*.env

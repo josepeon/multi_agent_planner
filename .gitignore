@@ -29,3 +29,7 @@ env/
 
 # API keys or credentials
 *.env
+
+# Conda env
+*.conda
+env/

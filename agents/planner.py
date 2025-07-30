@@ -1,11 +1,13 @@
 # agents/planner.py
 
 import os
+import re
 import openai
 
 class PlannerAgent:
-    def __init__(self, model="gpt-4"):
+    def __init__(self, model="gpt-4", temperature=0.3):
         self.model = model
+        self.temperature = temperature
         openai.api_key = os.getenv("OPENAI_API_KEY")
 
     def plan_task(self, user_prompt):
@@ -26,10 +28,13 @@ class PlannerAgent:
         response = openai.ChatCompletion.create(
             model=self.model,
             messages=[system_message, user_message],
-            temperature=0.3
+            temperature=self.temperature
         )
 
         output = response["choices"][0]["message"]["content"]
-        # Parse the subtasks (naively assuming numbered list)
-        subtasks = [line.strip()[3:].strip() for line in output.split("\n") if line.strip().startswith("1.") or line.strip()[:2].isdigit()]
+        subtasks = [
+            re.sub(r"^\s*\d+[\.\):\-]\s*", "", line).strip()
+            for line in output.split("\n")
+            if re.match(r"^\s*\d+[\.\):\-]", line)
+        ]
         return subtasks

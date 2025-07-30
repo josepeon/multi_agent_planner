@@ -8,7 +8,7 @@ class DeveloperAgent:
         self.model = model
         openai.api_key = os.getenv("OPENAI_API_KEY")
 
-    def write_code(self, task_description):
+    def write_code(self, task_description, feedback_message=None):
         system_message = {
             "role": "system",
             "content": (
@@ -18,10 +18,13 @@ class DeveloperAgent:
                 "Only return valid Python code — no explanations or markdown."
             )
         }
+        base_prompt = f"Task: {task_description}"
+        if feedback_message:
+            base_prompt += f"\nNote: Your previous attempt failed. Error was:\n{feedback_message}"
 
         user_message = {
             "role": "user",
-            "content": f"Task: {task_description}"
+            "content": base_prompt
         }
 
         response = openai.ChatCompletion.create(

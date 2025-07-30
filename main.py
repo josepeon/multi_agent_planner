@@ -2,10 +2,12 @@
 
 from agents.planner import PlannerAgent
 from agents.developer import DeveloperAgent
+from agents.qa import QAAgent
 
 def main():
     planner = PlannerAgent()
     developer = DeveloperAgent()
+    qa = QAAgent()
 
     print("\nUSER PROMPT")
     user_prompt = input("What would you like the system to build?\n> ")
@@ -16,12 +18,29 @@ def main():
     for i, task in enumerate(task_list):
         print(f"  {i+1}. {task}")
 
-    print("\nDEVELOPMENT STAGE")
+    print("\nDEVELOPMENT + QA STAGE")
     for i, task in enumerate(task_list):
         print(f"\nTask {i+1}: {task}")
-        code = developer.write_code(task)
-        print("Generated Code:")
-        print(code)
+        max_retries = 2
+        attempt = 0
+        success = False
+        feedback = None
+
+        while attempt <= max_retries and not success:
+            print(f"\nAttempt {attempt + 1}")
+            code = developer.write_code(task, feedback)
+            print("Generated Code:\n", code)
+
+            evaluation = qa.evaluate_code(code)
+            success = evaluation["success"]
+
+            if success:
+                print("✅ QA Passed")
+            else:
+                print("❌ QA Failed")
+                print("Error:\n", evaluation["error"])
+                feedback = evaluation["error"]
+                attempt += 1
 
 if __name__ == "__main__":
     main()

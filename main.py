@@ -3,11 +3,13 @@
 from agents.planner import PlannerAgent
 from agents.developer import DeveloperAgent
 from agents.qa import QAAgent
+from agents.critic import CriticAgent
 
 def main():
     planner = PlannerAgent()
     developer = DeveloperAgent()
     qa = QAAgent()
+    critic = CriticAgent()
 
     print("\nUSER PROMPT")
     user_prompt = input("What would you like the system to build?\n> ")
@@ -39,7 +41,11 @@ def main():
             else:
                 print("❌ QA Failed")
                 print("Error:\n", evaluation["error"])
-                feedback = evaluation["error"]
+
+                critique = critic.critique_code(task, code, evaluation["error"])
+                print("Critique:\n", critique)
+
+                feedback = f"{evaluation['error']}\n\nCritique:\n{critique}"
                 attempt += 1
 
 if __name__ == "__main__":

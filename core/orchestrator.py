@@ -5,6 +5,7 @@ from agents.qa import QAAgent
 from agents.critic import CriticAgent
 from core.assembler import assemble_code_from_log
 from core.memory import Memory
+from core.task_schema import Task
 
 # Initialize agents
 planner = PlannerAgent()
@@ -23,16 +24,18 @@ def run_pipeline(user_prompt, save_path="output/session_log.json"):
     memory.set("last_tasks", tasks)
 
     print("PLANNING STAGE")
-    for idx, task in enumerate(tasks, 1):
-        print(f"  {idx}. {task}")
+    for idx, description in enumerate(tasks, 1):
+        task = Task(id=idx, description=description)
+        print(f"  {task.id}. {task.description}")
+        tasks[idx - 1] = task
 
     session_log = {"prompt": user_prompt, "tasks": []}
 
     for task in tasks:
-        print(f"\nDEVELOPMENT + QA STAGE\n\nTask: {task}")
+        print(f"\nDEVELOPMENT + QA STAGE\n\nTask: {task.description}")
 
         # Develop code
-        code = developer.develop(task)
+        code = developer.develop(task.description)
         print("\nGenerated Code:\n", code)
 
         # Run QA
@@ -42,12 +45,15 @@ def run_pipeline(user_prompt, save_path="output/session_log.json"):
         # Optionally call critic
         critique = ""
         if not qa_result.get("success"):
-            critique = critic.review(task, code, qa_result.get("error"))
+            critique = critic.review(task.description, code, qa_result.get("error"))
             print("\nCritique:\n", critique)
 
         # Append to session log
+        task.status = "complete" if qa_result.get("success") else "failed"
+        task.result = code
+
         session_log["tasks"].append({
-            "task": task,
+            "task": task.description,
             "code": code,
             "qa_result": qa_result,
             "critique": critique,

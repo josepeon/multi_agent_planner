@@ -5,6 +5,7 @@ import openai
 from openai import OpenAIError
 from dotenv import load_dotenv
 from core.memory import Memory
+from core.task_schema import Task
 load_dotenv()
 
 class DeveloperAgent:
@@ -49,5 +50,8 @@ class DeveloperAgent:
             return code
         except OpenAIError as e:
             return f"OpenAI API error: {str(e)}"
-    def develop(self, task):
-        return self.write_code(task_description=task)
+    def develop(self, task: Task) -> Task:
+        result = self.write_code(task_description=task.description)
+        task.result = result
+        task.status = "completed"
+        return task

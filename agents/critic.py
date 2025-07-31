@@ -5,6 +5,7 @@ import openai
 from openai import OpenAIError
 from dotenv import load_dotenv
 from core.memory import Memory
+from core.task_schema import Task
 load_dotenv()
 
 class CriticAgent:
@@ -14,7 +15,7 @@ class CriticAgent:
         self.memory = Memory(memory_path)
         openai.api_key = os.getenv("OPENAI_API_KEY")
 
-    def review(self, task_description, code, error_message):
+    def review(self, task: Task, code: str, error_message: str):
         system_message = {
             "role": "system",
             "content": (
@@ -27,14 +28,14 @@ class CriticAgent:
         user_message = {
             "role": "user",
             "content": (
-                f"Task: {task_description}\n\n"
+                f"Task: {task.description}\n\n"
                 f"Code:\n{code}\n\n"
                 f"Error:\n{error_message}\n\n"
                 "What could be improved?"
             )
         }
 
-        cache_key = f"{task_description}|{code}|{error_message}"
+        cache_key = f"{task.description}|{code}|{error_message}"
         cached_review = self.memory.get(cache_key)
         if cached_review:
             return cached_review

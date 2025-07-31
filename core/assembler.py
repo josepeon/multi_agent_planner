@@ -2,6 +2,7 @@ import os
 import re
 from typing import List, Dict, Any
 from core.memory import Memory
+from core.task_schema import Task
 
 
 def extract_and_clean_code(code_blocks: List[str]) -> str:
@@ -27,9 +28,9 @@ def save_final_script(code: str, path: str = "output/final_program.py") -> None:
 
 def assemble_code_from_log(log_data: Dict[str, Any]) -> str:
     successful_code_blocks = [
-        task.get("code", "")
-        for task in log_data.get("tasks", [])
-        if task.get("qa_result", {}).get("success") and task.get("code", "").strip()
+        task.result
+        for task in [Task(**t) for t in log_data.get("tasks", [])]
+        if task.status == "success" and task.result and task.result.strip()
     ]
 
     final_code = extract_and_clean_code(successful_code_blocks)

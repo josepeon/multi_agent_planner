@@ -5,6 +5,7 @@ import openai
 from openai import OpenAI
 from dotenv import load_dotenv
 from core.memory import Memory
+from core.task_schema import Task
 
 load_dotenv()
 
@@ -13,18 +14,8 @@ class QAAgent:
         self.model = model
         self.memory = Memory(filepath="output/qa_memory.json")
 
-    def evaluate_code(self, code: str, temperature: float = 0.2, max_tokens: int = 512) -> dict:
-        """
-        Sends the code to the OpenAI API for evaluation and critique.
-        """
-        result = {
-            "success": False,
-            "error": None,
-            "output": None,
-            "critique": None
-        }
-
-        cached = self.memory.get(code)
+    def evaluate_code(self, task: Task, temperature: float = 0.2, max_tokens: int = 512) -> Task:
+        cached = self.memory.get(task.description)
         if cached:
             return cached
 
@@ -35,7 +26,7 @@ class QAAgent:
                 "then provide a clear critique including any improvements, security risks, or bugs. "
                 "Respond with a JSON like: "
                 "{ \"success\": true/false, \"critique\": \"your comments here\" }\n\n"
-                f"CODE:\n{code}"
+                f"CODE:\n{task.description}"
             )
 
             client = OpenAI()
@@ -48,15 +39,18 @@ class QAAgent:
                 temperature=temperature,
                 max_tokens=max_tokens
             )
-            content = response.choices[0].message.content
             import json
-            parsed = json.loads(content)
+            parsed = json.loads(response.choices[0].message.content)
 
-            result["success"] = parsed.get("success", False)
-            result["critique"] = parsed.get("critique", "")
+            if parsed.get("success", False):
+                task.status = "complete"
+            else:
+                task.status = "failed"
+            task.result = parsed.get("critique", "")
 
-            self.memory.set(code, result)
+            self.memory.set(task.description, task)
         except Exception as e:
-            result["error"] = str(e)
+            task.status = "failed"
+            task.result = str(e)
 
-        return result
+        return task

@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from core.memory import Memory
+from core.task_schema import Task
 memory = Memory("output/memory.json")
 
 class PlannerAgent:
@@ -52,8 +53,9 @@ class PlannerAgent:
         cache_key = f"plan::{user_prompt}"
         cached = memory.get(cache_key)
         if cached:
-            return cached
+            return [Task(**t) if isinstance(t, dict) else t for t in cached]
 
         result = self.plan_task(user_prompt)
-        memory.set(cache_key, result)
-        return result
+        tasks = [Task(id=i, description=desc) for i, desc in enumerate(result)]
+        memory.set(cache_key, tasks)
+        return tasks

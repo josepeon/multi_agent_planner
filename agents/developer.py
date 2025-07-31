@@ -2,9 +2,12 @@
 
 import os
 import openai
+from openai import OpenAIError
+from dotenv import load_dotenv
+load_dotenv()
 
 class DeveloperAgent:
-    def __init__(self, model="gpt-4"):
+    def __init__(self, model="gpt-4o"):
         self.model = model
         openai.api_key = os.getenv("OPENAI_API_KEY")
 
@@ -27,11 +30,12 @@ class DeveloperAgent:
             "content": base_prompt
         }
 
-        response = openai.ChatCompletion.create(
-            model=self.model,
-            messages=[system_message, user_message],
-            temperature=0.3
-        )
-
-        code = response["choices"][0]["message"]["content"]
-        return code.strip()
+        try:
+            response = openai.chat.completions.create(
+                model=self.model,
+                messages=[system_message, user_message],
+                temperature=0.3
+            )
+            return response.choices[0].message.content.strip()
+        except OpenAIError as e:
+            return f"OpenAI API error: {str(e)}"

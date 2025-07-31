@@ -2,9 +2,12 @@
 
 import os
 import openai
+from openai import OpenAIError
+from dotenv import load_dotenv
+load_dotenv()
 
 class CriticAgent:
-    def __init__(self, model="gpt-4", temperature=0.3):
+    def __init__(self, model="gpt-4o", temperature=0.3):
         self.model = model
         self.temperature = temperature
         openai.api_key = os.getenv("OPENAI_API_KEY")
@@ -29,11 +32,12 @@ class CriticAgent:
             )
         }
 
-        response = openai.ChatCompletion.create(
-            model=self.model,
-            messages=[system_message, user_message],
-            temperature=self.temperature
-        )
-
-        return response["choices"][0]["message"]["content"].strip()
-    
+        try:
+            response = openai.chat.completions.create(
+                model=self.model,
+                messages=[system_message, user_message],
+                temperature=self.temperature
+            )
+            return response.choices[0].message.content.strip()
+        except OpenAIError as e:
+            return f"OpenAI API error: {str(e)}"

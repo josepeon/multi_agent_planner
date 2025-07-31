@@ -3,9 +3,12 @@
 import os
 import re
 import openai
+from openai import OpenAIError
+from dotenv import load_dotenv
+load_dotenv()
 
 class PlannerAgent:
-    def __init__(self, model="gpt-4", temperature=0.3):
+    def __init__(self, model="gpt-4o", temperature=0.3):
         self.model = model
         self.temperature = temperature
         openai.api_key = os.getenv("OPENAI_API_KEY")
@@ -25,13 +28,16 @@ class PlannerAgent:
             "content": f"User request: {user_prompt}"
         }
 
-        response = openai.ChatCompletion.create(
-            model=self.model,
-            messages=[system_message, user_message],
-            temperature=self.temperature
-        )
+        try:
+            response = openai.chat.completions.create(
+                model=self.model,
+                messages=[system_message, user_message],
+                temperature=self.temperature
+            )
+            output = response.choices[0].message.content
+        except OpenAIError as e:
+            return [f"OpenAI API error: {str(e)}"]
 
-        output = response["choices"][0]["message"]["content"]
         subtasks = [
             re.sub(r"^\s*\d+[\.\):\-]\s*", "", line).strip()
             for line in output.split("\n")

@@ -1,14 +1,14 @@
 import json
 from agents.planner import PlannerAgent
 from agents.developer import DeveloperAgent
-from agents.qa import QAChecker
+from agents.qa import QAAgent
 from agents.critic import CriticAgent
 from core.assembler import assemble_code_from_log
 
 # Initialize agents
 planner = PlannerAgent()
 developer = DeveloperAgent()
-qa_checker = QAChecker()
+qa_checker = QAAgent()
 critic = CriticAgent()
 
 def run_pipeline(user_prompt, save_path="output/session_log.json"):
@@ -31,19 +31,19 @@ def run_pipeline(user_prompt, save_path="output/session_log.json"):
 
         # Run QA
         qa_result = qa_checker.evaluate_code(code)
-        print("\nQA Result:", "✅ Passed" if qa_result.success else "❌ Failed")
+        print("\nQA Result:", "✅ Passed" if qa_result.get("success") else "❌ Failed")
 
         # Optionally call critic
         critique = ""
-        if not qa_result.success:
-            critique = critic.critique(code, qa_result.error)
+        if not qa_result.get("success"):
+            critique = critic.review(task, code, qa_result.get("error"))
             print("\nCritique:\n", critique)
 
         # Append to session log
         session_log["tasks"].append({
             "task": task,
             "code": code,
-            "qa_result": qa_result.to_dict(),
+            "qa_result": qa_result,
             "critique": critique,
         })
 
@@ -60,3 +60,7 @@ def run_pipeline(user_prompt, save_path="output/session_log.json"):
 if __name__ == "__main__":
     user_input = input("Enter your project description: ")
     run_pipeline(user_input)
+
+
+# Export run_pipeline as run_orchestrator for import
+run_orchestrator = run_pipeline

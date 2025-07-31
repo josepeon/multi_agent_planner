@@ -39,3 +39,5 @@ class DeveloperAgent:
             return response.choices[0].message.content.strip()
         except OpenAIError as e:
             return f"OpenAI API error: {str(e)}"
+    def develop(self, task):
+        return self.write_code(task_description=task)

@@ -12,7 +12,7 @@ class CriticAgent:
         self.temperature = temperature
         openai.api_key = os.getenv("OPENAI_API_KEY")
 
-    def critique_code(self, task_description, code, error_message):
+    def review(self, task_description, code, error_message):
         system_message = {
             "role": "system",
             "content": (

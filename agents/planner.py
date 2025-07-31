@@ -44,3 +44,6 @@ class PlannerAgent:
             if re.match(r"^\s*\d+[\.\):\-]", line)
         ]
         return subtasks
+
+    def plan(self, user_prompt):
+        return self.plan_task(user_prompt)

@@ -1,8 +1,10 @@
 import os
 import re
+from typing import List, Dict, Any
+from core.memory import Memory
 
 
-def extract_and_clean_code(code_blocks):
+def extract_and_clean_code(code_blocks: List[str]) -> str:
     """
     Combine code blocks, remove duplicate imports, organize into a single file.
     """
@@ -16,19 +18,24 @@ def extract_and_clean_code(code_blocks):
     return cleaned_code
 
 
-def save_final_script(code, path="output/final_program.py"):
+def save_final_script(code: str, path: str = "output/final_program.py") -> None:
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w") as f:
         f.write(code)
     print(f"\n✅ Final program saved to: {path}")
 
 
-def assemble_code_from_log(log_data):
-    successful_code_blocks = []
-    for task in log_data.get("tasks", []):
-        if task.get("qa_result", {}).get("success"):
-            successful_code_blocks.append(task.get("code", ""))
+def assemble_code_from_log(log_data: Dict[str, Any]) -> str:
+    successful_code_blocks = [
+        task.get("code", "")
+        for task in log_data.get("tasks", [])
+        if task.get("qa_result", {}).get("success") and task.get("code", "").strip()
+    ]
 
     final_code = extract_and_clean_code(successful_code_blocks)
+
+    memory = Memory(filepath="output/memory.json")
+    memory.set("final_code", final_code)
+
     save_final_script(final_code)
     return final_code

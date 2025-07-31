@@ -4,18 +4,24 @@ from agents.developer import DeveloperAgent
 from agents.qa import QAAgent
 from agents.critic import CriticAgent
 from core.assembler import assemble_code_from_log
+from core.memory import Memory
 
 # Initialize agents
 planner = PlannerAgent()
 developer = DeveloperAgent()
 qa_checker = QAAgent()
 critic = CriticAgent()
+memory = Memory(filepath="output/memory.json")
 
 def run_pipeline(user_prompt, save_path="output/session_log.json"):
     print("\nUSER PROMPT")
     print(f"What would you like the system to build?\n> {user_prompt}\n")
 
+    memory.set("last_prompt", user_prompt)
+
     tasks = planner.plan(user_prompt)
+    memory.set("last_tasks", tasks)
+
     print("PLANNING STAGE")
     for idx, task in enumerate(tasks, 1):
         print(f"  {idx}. {task}")
@@ -55,12 +61,12 @@ def run_pipeline(user_prompt, save_path="output/session_log.json"):
     # Assemble final code
     print("\nASSEMBLING FINAL PROGRAM")
     final_code = assemble_code_from_log(session_log)
+    memory.set("last_final_code", final_code)
     return final_code
+
+# Export run_pipeline as run_orchestrator for import
+run_orchestrator = run_pipeline
 
 if __name__ == "__main__":
     user_input = input("Enter your project description: ")
     run_pipeline(user_input)
-
-
-# Export run_pipeline as run_orchestrator for import
-run_orchestrator = run_pipeline

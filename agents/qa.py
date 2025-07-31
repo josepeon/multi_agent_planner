@@ -4,14 +4,16 @@ import os
 import openai
 from openai import OpenAI
 from dotenv import load_dotenv
+from core.memory import Memory
 
 load_dotenv()
 
 class QAAgent:
     def __init__(self, model="gpt-4"):
         self.model = model
+        self.memory = Memory(filepath="output/qa_memory.json")
 
-    def evaluate_code(self, code: str) -> dict:
+    def evaluate_code(self, code: str, temperature: float = 0.2, max_tokens: int = 512) -> dict:
         """
         Sends the code to the OpenAI API for evaluation and critique.
         """
@@ -21,6 +23,10 @@ class QAAgent:
             "output": None,
             "critique": None
         }
+
+        cached = self.memory.get(code)
+        if cached:
+            return cached
 
         try:
             prompt = (
@@ -39,7 +45,8 @@ class QAAgent:
                     {"role": "system", "content": "You are a senior Python code reviewer."},
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.2
+                temperature=temperature,
+                max_tokens=max_tokens
             )
             content = response.choices[0].message.content
             import json
@@ -47,6 +54,8 @@ class QAAgent:
 
             result["success"] = parsed.get("success", False)
             result["critique"] = parsed.get("critique", "")
+
+            self.memory.set(code, result)
         except Exception as e:
             result["error"] = str(e)
 

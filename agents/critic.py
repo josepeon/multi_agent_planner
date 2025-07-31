@@ -4,12 +4,14 @@ import os
 import openai
 from openai import OpenAIError
 from dotenv import load_dotenv
+from core.memory import Memory
 load_dotenv()
 
 class CriticAgent:
-    def __init__(self, model="gpt-4o", temperature=0.3):
+    def __init__(self, model="gpt-4o", temperature=0.3, memory_path="memory/critic_memory.json"):
         self.model = model
         self.temperature = temperature
+        self.memory = Memory(memory_path)
         openai.api_key = os.getenv("OPENAI_API_KEY")
 
     def review(self, task_description, code, error_message):
@@ -32,6 +34,11 @@ class CriticAgent:
             )
         }
 
+        cache_key = f"{task_description}|{code}|{error_message}"
+        cached_review = self.memory.get(cache_key)
+        if cached_review:
+            return cached_review
+
         try:
             response = openai.chat.completions.create(
                 model=self.model,
@@ -39,7 +46,9 @@ class CriticAgent:
                 temperature=self.temperature
             )
             if response.choices and len(response.choices) > 0:
-                return response.choices[0].message.content.strip()
+                result = response.choices[0].message.content.strip()
+                self.memory.set(cache_key, result)
+                return result
             else:
                 return "No response received from the model."
         except OpenAIError as e:

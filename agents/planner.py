@@ -3,9 +3,12 @@
 import os
 import re
 import openai
-from openai import OpenAIError
+from openai.error import OpenAIError
 from dotenv import load_dotenv
 load_dotenv()
+
+from core.memory import Memory
+memory = Memory("output/memory.json")
 
 class PlannerAgent:
     def __init__(self, model="gpt-4o", temperature=0.3):
@@ -46,4 +49,11 @@ class PlannerAgent:
         return subtasks
 
     def plan(self, user_prompt):
-        return self.plan_task(user_prompt)
+        cache_key = f"plan::{user_prompt}"
+        cached = memory.get(cache_key)
+        if cached:
+            return cached
+
+        result = self.plan_task(user_prompt)
+        memory.set(cache_key, result)
+        return result

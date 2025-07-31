@@ -4,14 +4,16 @@ import os
 import openai
 from openai import OpenAIError
 from dotenv import load_dotenv
+from core.memory import Memory
 load_dotenv()
 
 class DeveloperAgent:
     def __init__(self, model="gpt-4o"):
         self.model = model
         openai.api_key = os.getenv("OPENAI_API_KEY")
+        self.memory = Memory("memory/developer_memory.json")
 
-    def write_code(self, task_description, feedback_message=None):
+    def write_code(self, task_description, feedback_message=None, temperature=0.3, max_tokens=500):
         system_message = {
             "role": "system",
             "content": (
@@ -30,13 +32,21 @@ class DeveloperAgent:
             "content": base_prompt
         }
 
+        cache_key = f"{task_description}|{feedback_message}"
+        cached_code = self.memory.get(cache_key)
+        if cached_code:
+            return cached_code
+
         try:
             response = openai.chat.completions.create(
                 model=self.model,
                 messages=[system_message, user_message],
-                temperature=0.3
+                temperature=temperature,
+                max_tokens=max_tokens,
             )
-            return response.choices[0].message.content.strip()
+            code = response.choices[0].message.content.strip()
+            self.memory.set(cache_key, code)
+            return code
         except OpenAIError as e:
             return f"OpenAI API error: {str(e)}"
     def develop(self, task):

@@ -28,12 +28,26 @@ def save_final_script(code: str, path: str = "output/final_program.py") -> None:
 
 def assemble_code_from_log(log_data: Dict[str, Any]) -> str:
     successful_code_blocks = [
-        task.result
-        for task in [Task(**t) for t in log_data.get("tasks", [])]
-        if task.status == "success" and task.result and task.result.strip()
+        t["code"]
+        for t in log_data.get("tasks", [])
+        if (
+            t.get("result")
+            and isinstance(t.get("result"), str)
+            and t["result"].strip()
+            and isinstance(t.get("code"), str)
+            and not t["code"].strip().startswith("# Create a file")
+        )
     ]
 
-    final_code = extract_and_clean_code(successful_code_blocks)
+    # Deduplicate code blocks
+    seen = set()
+    unique_blocks = []
+    for block in successful_code_blocks:
+        if block not in seen:
+            unique_blocks.append(block)
+            seen.add(block)
+
+    final_code = extract_and_clean_code(unique_blocks)
 
     memory = Memory(filepath="output/memory.json")
     memory.set("final_code", final_code)

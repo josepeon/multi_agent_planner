@@ -1,5 +1,6 @@
 import json
 import os
+from dataclasses import asdict
 
 class Memory:
     def __init__(self, filepath=None):
@@ -20,12 +21,31 @@ class Memory:
         if self.filepath:
             try:
                 with open(self.filepath, 'w') as f:
-                    json.dump(self.data, f, indent=2)
+                    def serialize(obj):
+                        if hasattr(obj, '__dataclass_fields__'):
+                            return asdict(obj)
+                        if isinstance(obj, list):
+                            return [serialize(v) for v in obj]
+                        if isinstance(obj, dict):
+                            return {k: serialize(v) for k, v in obj.items()}
+                        return obj
+
+                    serializable_data = {k: serialize(v) for k, v in self.data.items()}
+                    json.dump(serializable_data, f, indent=2)
             except Exception as e:
                 print(f"Failed to save memory file: {e}")
 
     def set(self, key, value):
-        self.data[key] = value
+        def serialize(obj):
+            if hasattr(obj, '__dataclass_fields__'):
+                return asdict(obj)
+            if isinstance(obj, list):
+                return [serialize(v) for v in obj]
+            if isinstance(obj, dict):
+                return {k: serialize(v) for k, v in obj.items()}
+            return obj
+
+        self.data[key] = serialize(value)
         self._save()
 
     def get(self, key, default=None):

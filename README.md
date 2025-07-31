@@ -14,13 +14,12 @@ User prompt:
 > "Build a CLI tool that reads a CSV file and outputs JSON summary stats."
 
 System output:
-- Planner identifies subtasks:
-  1. Parse CLI arguments
-  2. Read CSV
-  3. Calculate summary stats
-  4. Write JSON output
+- Planner identifies subtasks
 - Developer writes code for each subtask
-- (Future: QA agent tests and critiques results)
+- QA Agent evaluates execution and correctness
+- Critic Agent suggests refinements for failed code
+- Developer revises and retries failed tasks
+- Assembler generates a clean, deduplicated final program
 
 ---
 
@@ -29,27 +28,55 @@ System output:
 ```
 multi_agent_planner/
 ├── agents/
-│   ├── planner.py              # PlannerAgent: breaks tasks into subtasks
-│   ├── developer.py            # DeveloperAgent: generates code for each task
-│   └── base_agent.py           # Optional: shared methods/utilities for agents
+│   ├── planner.py
+│   ├── developer.py
+│   ├── qa.py
+│   ├── critic.py
+│   └── base_agent.py
 ├── core/
-│   ├── orchestrator.py         # Main loop coordinator (for future)
-│   ├── memory.py               # Task/result memory module (for future)
-│   └── task_schema.py          # JSON schema for structured tasks (optional)
+│   ├── orchestrator.py
+│   ├── memory.py
+│   ├── task_schema.py
+│   ├── assembler.py
+│   └── assemble.py
 ├── prompts/
-│   ├── planner_prompt.txt      # Prompt template for planner role
-│   └── developer_prompt.txt    # Prompt template for developer role
+│   ├── planner_prompt.txt
+│   └── developer_prompt.txt
+├── output/
+│   ├── session_log.json
+│   ├── memory.json
+│   └── final_program.py
 ├── examples/
-│   └── test_task_1.json        # Saved example outputs or inputs
-├── main.py                     # Project entrypoint
-├── requirements.txt            # Dependencies list
-└── README.md                   # Project description and usage
+│   └── test_task_1.json
+├── main.py
+├── requirements.txt
+└── README.md
 ```
 
-## Planned Agents
+## Implemented Agents
 
 - `PlannerAgent`: breaks task into subtasks
 - `DeveloperAgent`: writes code for each subtask
-- `QAAgent` (coming soon): evaluates code results
-- `CriticAgent` (optional): identifies flaws and improvements
-- `Coordinator`: manages agent sequence and feedback loops
+- `QAAgent`: verifies execution and correctness of generated code
+- `CriticAgent`: critiques and suggests code improvements
+- `Assembler`: deduplicates and assembles final clean code output
+
+
+## How to Run
+
+1. Install dependencies:
+   ```
+   pip install -r requirements.txt
+   ```
+
+2. Create a `.env` file with your OpenAI key:
+   ```
+   OPENAI_API_KEY=your-key-here
+   ```
+
+3. Run the planner:
+   ```
+   python main.py
+   ```
+
+4. Follow the interactive prompt to generate your desired program.

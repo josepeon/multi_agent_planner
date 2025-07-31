@@ -3,7 +3,7 @@
 import os
 import re
 import openai
-from openai.error import OpenAIError
+from openai import OpenAIError
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -23,7 +23,8 @@ class PlannerAgent:
             "content": (
                 "You are a planning assistant. Given a user's request, "
                 "break the task down into a numbered list of clear, atomic subtasks. "
-                "Keep the list focused and executable by a developer agent."
+                "Keep the list focused and executable by a developer agent. "
+                "Avoid vague or generic headings like 'Setup', 'Testing', or 'Optimization' — instead, describe what specifically needs to be done in each step."
             )
         }
 

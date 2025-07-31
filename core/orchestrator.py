@@ -1,4 +1,5 @@
 import json
+from dataclasses import asdict
 from agents.planner import PlannerAgent
 from agents.developer import DeveloperAgent
 from agents.qa import QAAgent
@@ -14,47 +15,50 @@ qa_checker = QAAgent()
 critic = CriticAgent()
 memory = Memory(filepath="output/memory.json")
 
-def run_pipeline(user_prompt, save_path="output/session_log.json"):
-    print("\nUSER PROMPT")
-    print(f"What would you like the system to build?\n> {user_prompt}\n")
+def run_pipeline(task: Task, save_path="output/session_log.json"):
 
-    memory.set("last_prompt", user_prompt)
+    memory.set("last_prompt", task.description)
 
-    tasks = planner.plan(user_prompt)
+    tasks = planner.plan(task.description)
     memory.set("last_tasks", tasks)
 
     print("PLANNING STAGE")
-    for idx, description in enumerate(tasks, 1):
-        task = Task(id=idx, description=description)
-        print(f"  {task.id}. {task.description}")
-        tasks[idx - 1] = task
+    for idx, task in enumerate(tasks, 1):
+        description = task.description if isinstance(task, Task) else task
+        clean_description = description.strip().lstrip('*').strip()
+        print(f"  Task {idx}: {clean_description}")
+        if not isinstance(task, Task):
+            task = Task(id=idx - 1, description=description)
+            tasks[idx - 1] = task
 
-    session_log = {"prompt": user_prompt, "tasks": []}
+    session_log = {"prompt": task.description, "tasks": []}
 
     for task in tasks:
-        print(f"\nDEVELOPMENT + QA STAGE\n\nTask: {task.description}")
+        print(f"\nDEVELOPMENT + QA STAGE\n\nTask {task.id}: {task.description} (Status: {task.status})")
 
         # Develop code
-        code = developer.develop(task.description)
-        print("\nGenerated Code:\n", code)
+        code = developer.develop(task)
+        print(f"\nGenerated Code for Task {task.id}:\n{code}\n")
 
         # Run QA
         qa_result = qa_checker.evaluate_code(code)
-        print("\nQA Result:", "✅ Passed" if qa_result.get("success") else "❌ Failed")
+        print(f"\nQA Result for Task {task.id}: {'✅ Passed' if qa_result.get('status') == 'passed' else '❌ Failed'}")
 
         # Optionally call critic
         critique = ""
-        if not qa_result.get("success"):
-            critique = critic.review(task.description, code, qa_result.get("error"))
+        if qa_result.get('status') != "passed":
+            critique = critic.review(task.description, code, qa_result.get('result'))
             print("\nCritique:\n", critique)
 
         # Append to session log
-        task.status = "complete" if qa_result.get("success") else "failed"
+        task.status = "complete" if qa_result.get('status') == "passed" else "failed"
         task.result = code
 
         session_log["tasks"].append({
             "task": task.description,
-            "code": code,
+            "code": code.get("code"),
+            "result": code.get("result"),
+            "status": code.get("status"),
             "qa_result": qa_result,
             "critique": critique,
         })

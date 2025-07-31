@@ -38,6 +38,9 @@ class CriticAgent:
                 messages=[system_message, user_message],
                 temperature=self.temperature
             )
-            return response.choices[0].message.content.strip()
+            if response.choices and len(response.choices) > 0:
+                return response.choices[0].message.content.strip()
+            else:
+                return "No response received from the model."
         except OpenAIError as e:
             return f"OpenAI API error: {str(e)}"

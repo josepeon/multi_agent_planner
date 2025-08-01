@@ -1,5 +1,3 @@
-
-
 # Multi-Agent Planner
 
 **LLM-powered system that solves coding tasks through agent collaboration.**
@@ -10,8 +8,8 @@ This project implements a multi-agent architecture using GPT-based agents, where
 
 ## Example Workflow
 
-User prompt:
-> "Build a CLI tool that reads a CSV file and outputs JSON summary stats."
+**Example user prompt:**  
+*"Create a command-line tool that parses a CSV file and returns JSON-formatted summary statistics."*
 
 System output:
 - Planner identifies subtasks
@@ -46,8 +44,6 @@ multi_agent_planner/
 │   ├── session_log.json
 │   ├── memory.json
 │   └── final_program.py
-├── examples/
-│   └── test_task_1.json
 ├── main.py
 ├── requirements.txt
 └── README.md
@@ -78,5 +74,7 @@ multi_agent_planner/
    ```
    python main.py
    ```
+
+# Note: Ensure your OpenAI API key has sufficient quota and access to GPT-4 or GPT-4o for best performance.
 
 4. Follow the interactive prompt to generate your desired program.

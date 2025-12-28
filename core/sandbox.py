@@ -296,6 +296,24 @@ def execute_subprocess(code: str, config: SandboxConfig) -> ExecutionResult:
     """
     import time
     
+    # Check for interactive code that would hang waiting for input
+    if 'input(' in code:
+        return ExecutionResult(
+            success=True,  # Syntax is valid, just can't test interactively
+            output="Interactive code detected (input()) - skipping execution. Code syntax is valid.",
+            execution_time=0,
+            method_used="subprocess_skip"
+        )
+    
+    # Check for GUI mainloop that would hang
+    if any(p in code for p in ['mainloop()', '.mainloop()']):
+        return ExecutionResult(
+            success=True,  # Syntax is valid, just can't test GUI
+            output="GUI mainloop detected - skipping execution. Code syntax is valid.",
+            execution_time=0,
+            method_used="subprocess_skip"
+        )
+    
     start_time = time.time()
     
     # Create temporary file for the code

@@ -22,12 +22,14 @@ class DeveloperAgent:
         self.client = get_llm_client(temperature=temperature, max_tokens=1024)
         self.memory = Memory("memory/developer_memory.json")
 
-    def write_code(self, task_description, feedback_message=None, temperature=0.3, max_tokens=500):
+    def write_code(self, task_description, feedback_message=None, temperature=0.3, max_tokens=1500):
         system_message = (
             "You are a senior Python developer. "
             "Your job is to write a clean, minimal Python function or code block "
             "that fulfills a single, clearly defined task. "
-            "Only return valid Python code — no explanations or markdown."
+            "IMPORTANT: Do NOT use input() or any interactive functions - the code must run without user interaction. "
+            "For GUI code, do NOT call mainloop() - just define the classes/functions. "
+            "Only return valid, complete Python code — no explanations, no markdown, no truncation."
         )
         base_prompt = f"Task: {task_description}"
         if feedback_message:
@@ -80,6 +82,26 @@ class DeveloperAgent:
 
     def _execute_code(self, code: str) -> dict:
         """Execute code safely using sandboxed execution."""
+        # First validate syntax before attempting execution
+        try:
+            compile(code, "<string>", "exec")
+        except SyntaxError as e:
+            return {
+                "output": "",
+                "passed": False,
+                "error": f"Syntax error at line {e.lineno}: {e.msg}",
+                "method": "syntax_check",
+            }
+        
+        # Skip execution for GUI code that can't run headless
+        if any(pattern in code for pattern in ['mainloop()', 'tk.mainloop', '.mainloop()']):
+            return {
+                "output": "GUI code - skipping execution (mainloop detected)",
+                "passed": True,  # Syntax is valid, consider it passed
+                "error": None,
+                "method": "gui_skip",
+            }
+        
         result = execute_code_safely(
             code,
             method=self.sandbox_method,

@@ -44,7 +44,9 @@ Multi-Agent Planner is an intelligent code generation system that orchestrates *
 | 🧪 **Auto-Generated Tests** | TestGenerator creates comprehensive pytest test suites |
 | 📝 **Auto Documentation** | Documenter agent creates README and adds docstrings |
 | ⚡ **Parallel Execution** | Tests and documentation generated concurrently |
-| 🌐 **Web Interface** | Flask-based UI for easy interaction |
+| 🌐 **Web Interface** | Flask-based UI with rate limiting and OpenAPI/Swagger docs |
+| 🐳 **Docker Ready** | Dockerfile + docker-compose for containerized deployment |
+| 🔁 **CI/CD Pipeline** | GitHub Actions for automated testing and linting |
 | 💾 **Persistent Memory** | Caches results to avoid redundant API calls |
 
 ---
@@ -143,6 +145,26 @@ python web/app.py
 # Open http://localhost:8080
 ```
 
+**Docker:**
+```bash
+docker compose up
+# Open http://localhost:8080
+```
+
+---
+
+## 🧪 Testing
+
+```bash
+# Run all tests
+python -m pytest tests/ -v
+
+# Run with coverage
+python -m pytest tests/ --cov=agents --cov=core
+
+# 60 tests covering agents, core modules, sandbox, and integration
+```
+
 ---
 
 ## 🌐 Web Interface
@@ -160,6 +182,22 @@ python web/app.py
 python web/app.py
 # Open http://localhost:8080
 ```
+
+### API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/` | GET | Web UI |
+| `/api/generate` | POST | Start code generation |
+| `/api/status/{job_id}` | GET | Check job status |
+| `/api/download/{job_id}` | GET | Download project ZIP |
+| `/api/recent` | GET | List recent jobs |
+| `/api/health` | GET | Health check |
+| `/swagger` | GET | OpenAPI/Swagger documentation |
+
+### Rate Limiting
+- 10 requests per minute per IP address
+- Configurable via `RATE_LIMIT_MAX` and `RATE_LIMIT_WINDOW` env vars
 
 ---
 
@@ -183,15 +221,24 @@ multi_agent_planner/
 │   ├── llm_provider.py        # Multi-provider LLM (auto-fallback)
 │   ├── sandbox.py             # Sandboxed execution
 │   ├── retry.py               # Exponential backoff
-│   └── memory.py              # Persistent JSON cache
+│   ├── memory.py              # Persistent JSON cache
+│   └── logger.py              # Structured logging (color + JSON)
 ├── web/                       # Web Interface
-│   ├── app.py                 # Flask server (port 8080)
+│   ├── app.py                 # Flask server with rate limiting
+│   ├── openapi.yml            # OpenAPI 3.0 specification
 │   └── templates/index.html   # Web UI
+├── tests/                     # Test Suite (60 tests)
+│   ├── test_agents.py         # Agent unit tests
+│   └── test_core.py           # Core module tests
+├── .github/workflows/         # CI/CD
+│   └── ci.yml                 # GitHub Actions pipeline
 ├── output/                    # Generated Output
 │   ├── final_program.py       # Main code
 │   ├── test_program.py        # Pytest tests
 │   ├── README.md              # Documentation
 │   └── project/               # Multi-file output
+├── Dockerfile                 # Docker image
+├── docker-compose.yml         # Docker Compose config
 ├── main.py                    # CLI entry point
 ├── requirements.txt
 └── environment.yml
@@ -306,15 +353,53 @@ output/project/
 |-----------|------------|
 | **Language** | Python 3.11 |
 | **LLM** | Groq (Llama 3.3 70B), Gemini, Ollama, OpenAI |
-| **Web Framework** | Flask |
+| **Web Framework** | Flask with rate limiting |
+| **API Docs** | OpenAPI 3.0 / Swagger UI |
 | **Code Analysis** | AST (Abstract Syntax Tree) |
-| **Testing** | pytest |
+| **Testing** | pytest (60 tests) |
+| **CI/CD** | GitHub Actions |
+| **Containerization** | Docker + Docker Compose |
 | **Concurrency** | ThreadPoolExecutor |
 | **Environment** | Conda + pip |
 
 ---
 
-## 📋 Requirements
+## � Docker Deployment
+
+### Quick Start with Docker Compose
+
+```bash
+# Start the web service
+docker compose up
+
+# Or run in CLI mode
+docker compose run --rm cli
+```
+
+### Build and Run Manually
+
+```bash
+# Build the image
+docker build -t multi-agent-planner .
+
+# Run with your API key
+docker run -p 8080:8080 -e GROQ_API_KEY=your-key multi-agent-planner
+```
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `GROQ_API_KEY` | - | Your Groq API key (required) |
+| `LLM_PROVIDER` | `groq` | LLM provider to use |
+| `PORT` | `8080` | Web server port |
+| `LOG_LEVEL` | `INFO` | Logging level |
+| `RATE_LIMIT_MAX` | `10` | Max requests per window |
+| `RATE_LIMIT_WINDOW` | `60` | Rate limit window (seconds) |
+
+---
+
+## �📋 Requirements
 
 - Python 3.11+
 - Groq API key (free) or other LLM provider

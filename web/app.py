@@ -5,14 +5,23 @@ Web Interface for Multi-Agent Planner
 
 Simple Flask web application that provides a user-friendly interface
 for generating code using the multi-agent system.
+
+Features:
+- REST API for code generation
+- Rate limiting to prevent abuse
+- Background job processing
+- ZIP download of generated projects
 """
 
 import os
 import sys
 import json
+import time
 from datetime import datetime
+from functools import wraps
+from collections import defaultdict
 from flask import Flask, render_template, request, jsonify, send_file
-from threading import Thread
+from threading import Thread, Lock
 import zipfile
 import io
 
@@ -24,9 +33,100 @@ from core.task_schema import Task
 
 app = Flask(__name__)
 
+
+# ===========================================
+# Rate Limiting
+# ===========================================
+
+class RateLimiter:
+    """
+    Simple in-memory rate limiter.
+    
+    For production, use Redis-based limiter (Flask-Limiter).
+    """
+    
+    def __init__(self, max_requests: int = 10, window_seconds: int = 60):
+        self.max_requests = max_requests
+        self.window_seconds = window_seconds
+        self.requests = defaultdict(list)
+        self.lock = Lock()
+    
+    def is_allowed(self, key: str) -> tuple[bool, int]:
+        """
+        Check if a request is allowed.
+        
+        Returns:
+            (allowed: bool, remaining: int)
+        """
+        now = time.time()
+        
+        with self.lock:
+            # Clean old requests
+            self.requests[key] = [
+                t for t in self.requests[key] 
+                if now - t < self.window_seconds
+            ]
+            
+            # Check limit
+            if len(self.requests[key]) >= self.max_requests:
+                return False, 0
+            
+            # Record this request
+            self.requests[key].append(now)
+            remaining = self.max_requests - len(self.requests[key])
+            return True, remaining
+
+
+# Rate limiter: 10 requests per minute per IP
+limiter = RateLimiter(
+    max_requests=int(os.environ.get('RATE_LIMIT_MAX', 10)),
+    window_seconds=int(os.environ.get('RATE_LIMIT_WINDOW', 60))
+)
+
+
+def rate_limit(f):
+    """Decorator to apply rate limiting to routes."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # Get client IP
+        client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+        if client_ip:
+            client_ip = client_ip.split(',')[0].strip()
+        
+        allowed, remaining = limiter.is_allowed(client_ip)
+        
+        if not allowed:
+            response = jsonify({
+                'error': 'Rate limit exceeded',
+                'message': f'Too many requests. Please wait before trying again.',
+                'retry_after': limiter.window_seconds
+            })
+            response.status_code = 429
+            response.headers['Retry-After'] = str(limiter.window_seconds)
+            response.headers['X-RateLimit-Remaining'] = '0'
+            return response
+        
+        # Add rate limit headers to response
+        response = f(*args, **kwargs)
+        if hasattr(response, 'headers'):
+            response.headers['X-RateLimit-Remaining'] = str(remaining)
+            response.headers['X-RateLimit-Limit'] = str(limiter.max_requests)
+        return response
+    
+    return decorated_function
+
+
+# ===========================================
+# Job Storage
+# ===========================================
+
 # Store running jobs (in production, use Redis or a database)
 jobs = {}
 
+
+# ===========================================
+# Routes
+# ===========================================
 
 @app.route('/')
 def index():
@@ -34,11 +134,50 @@ def index():
     return render_template('index.html')
 
 
+@app.route('/api/docs')
+def api_docs():
+    """Serve OpenAPI spec as YAML."""
+    return send_file(
+        os.path.join(os.path.dirname(__file__), 'openapi.yml'),
+        mimetype='text/yaml'
+    )
+
+
+@app.route('/swagger')
+def swagger_ui():
+    """Serve Swagger UI for API documentation."""
+    swagger_html = '''
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Multi-Agent Planner API</title>
+    <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css">
+</head>
+<body>
+    <div id="swagger-ui"></div>
+    <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+    <script>
+        SwaggerUIBundle({
+            url: "/api/docs",
+            dom_id: '#swagger-ui',
+            presets: [SwaggerUIBundle.presets.apis],
+            layout: "BaseLayout"
+        });
+    </script>
+</body>
+</html>
+'''
+    return swagger_html
+
+
 @app.route('/api/generate', methods=['POST'])
+@rate_limit
 def generate():
     """
     Start code generation from a project description.
     Returns immediately with a job ID.
+    
+    Rate limited: 10 requests per minute per IP.
     """
     data = request.json
     description = data.get('description', '').strip()
@@ -160,6 +299,17 @@ def recent_jobs():
     return jsonify(recent)
 
 
+@app.route('/api/health')
+def health_check():
+    """Health check endpoint for Docker/Kubernetes."""
+    return jsonify({
+        'status': 'healthy',
+        'service': 'multi-agent-planner',
+        'version': '1.0.0',
+        'active_jobs': len([j for j in jobs.values() if j['status'] == 'running'])
+    })
+
+
 def read_file_safe(filepath):
     """Read a file safely, returning None if it doesn't exist."""
     try:
@@ -175,6 +325,7 @@ if __name__ == '__main__':
     
     # Use port 8080 to avoid conflict with macOS AirPlay (port 5000)
     port = int(os.environ.get('PORT', 8080))
+    host = os.environ.get('HOST', '0.0.0.0')
     print("🚀 Starting Multi-Agent Planner Web Interface...")
     print(f"📍 Open http://localhost:{port} in your browser")
-    app.run(debug=True, port=port)
+    app.run(debug=True, host=host, port=port)

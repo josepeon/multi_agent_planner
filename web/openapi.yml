@@ -1,0 +1,301 @@
+openapi: 3.0.3
+info:
+  title: Multi-Agent Planner API
+  description: |
+    REST API for the Multi-Agent Planner code generation system.
+    
+    This API allows you to:
+    - Generate Python code from natural language descriptions
+    - Check the status of generation jobs
+    - Download generated projects as ZIP files
+    
+    ## Rate Limiting
+    - 10 requests per minute per IP address
+    - Rate limit headers included in responses
+    
+    ## Authentication
+    Currently no authentication required (designed for local use).
+  version: 1.0.0
+  contact:
+    name: Multi-Agent Planner
+    url: https://github.com/josepeon/multi_agent_planner
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+  - url: http://localhost:8080
+    description: Docker container
+
+tags:
+  - name: Generation
+    description: Code generation operations
+  - name: Jobs
+    description: Job management
+  - name: System
+    description: System health and status
+
+paths:
+  /api/generate:
+    post:
+      summary: Start code generation
+      description: |
+        Submit a project description to start code generation.
+        Returns immediately with a job ID for polling status.
+      tags:
+        - Generation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateRequest'
+            examples:
+              calculator:
+                summary: Calculator example
+                value:
+                  description: "Create a calculator with add, subtract, multiply, divide operations"
+              todo:
+                summary: Todo list example
+                value:
+                  description: "Create a todo list manager with priorities and due dates"
+      responses:
+        '200':
+          description: Job started successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobCreated'
+          headers:
+            X-RateLimit-Limit:
+              description: Max requests per window
+              schema:
+                type: integer
+            X-RateLimit-Remaining:
+              description: Remaining requests in window
+              schema:
+                type: integer
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RateLimitError'
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying
+              schema:
+                type: integer
+
+  /api/status/{jobId}:
+    get:
+      summary: Get job status
+      description: Check the status of a running or completed generation job.
+      tags:
+        - Jobs
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          description: The job ID returned from /api/generate
+          schema:
+            type: string
+            example: "20251228_140530"
+      responses:
+        '200':
+          description: Job status retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobStatus'
+        '404':
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/download/{jobId}:
+    get:
+      summary: Download project
+      description: Download the generated project as a ZIP file.
+      tags:
+        - Jobs
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          description: The job ID of a completed job
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ZIP file download
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: Job not completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/jobs:
+    get:
+      summary: List recent jobs
+      description: Get a list of the 10 most recent generation jobs.
+      tags:
+        - Jobs
+      responses:
+        '200':
+          description: List of recent jobs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/JobSummary'
+
+  /api/health:
+    get:
+      summary: Health check
+      description: Check if the service is healthy.
+      tags:
+        - System
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthCheck'
+
+components:
+  schemas:
+    GenerateRequest:
+      type: object
+      required:
+        - description
+      properties:
+        description:
+          type: string
+          description: Natural language description of the project to generate
+          example: "Create a todo list manager with add, remove, and list operations"
+          minLength: 10
+          maxLength: 2000
+
+    JobCreated:
+      type: object
+      properties:
+        job_id:
+          type: string
+          description: Unique identifier for the job
+          example: "20251228_140530"
+        status:
+          type: string
+          enum: [running]
+          description: Initial job status
+          example: "running"
+
+    JobStatus:
+      type: object
+      properties:
+        job_id:
+          type: string
+          example: "20251228_140530"
+        status:
+          type: string
+          enum: [running, completed, failed]
+          example: "completed"
+        description:
+          type: string
+          example: "Create a calculator"
+        started_at:
+          type: string
+          format: date-time
+          example: "2025-12-28T14:05:30"
+        result:
+          type: object
+          description: Present when status is 'completed'
+          properties:
+            final_code:
+              type: string
+              description: Generated Python code
+            test_file:
+              type: string
+              description: Generated pytest tests
+            readme:
+              type: string
+              description: Generated README
+        error:
+          type: string
+          description: Error message when status is 'failed'
+
+    JobSummary:
+      type: object
+      properties:
+        job_id:
+          type: string
+        status:
+          type: string
+        description:
+          type: string
+        started_at:
+          type: string
+
+    HealthCheck:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy]
+          example: "healthy"
+        service:
+          type: string
+          example: "multi-agent-planner"
+        version:
+          type: string
+          example: "1.0.0"
+        active_jobs:
+          type: integer
+          description: Number of currently running jobs
+          example: 0
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+          example: "Job not found"
+
+    RateLimitError:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Rate limit exceeded"
+        message:
+          type: string
+          example: "Too many requests. Please wait before trying again."
+        retry_after:
+          type: integer
+          description: Seconds to wait
+          example: 60

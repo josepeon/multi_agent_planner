@@ -129,21 +129,49 @@ class GroqClient(BaseLLMClient):
     """
     Groq API client - FREE and FAST!
     
-    Models available:
-    - llama-3.3-70b-versatile (best quality)
-    - llama-3.1-8b-instant (fastest)
-    - mixtral-8x7b-32768 (good for long context)
+    Models available (with separate rate limits):
+    - llama-3.3-70b-versatile (best quality) - 100k TPD
+    - llama-3.1-8b-instant (fastest) - 500k TPD
+    - mixtral-8x7b-32768 (good for long context) - 500k TPD
+    - gemma2-9b-it (good alternative) - 500k TPD
+    
+    Auto-fallback: When primary model hits rate limit, automatically
+    switches to fallback models with higher limits.
     
     Get free API key at: https://console.groq.com/
     """
     
+    # Fallback order: if primary model hits rate limit, try these
+    FALLBACK_MODELS = [
+        "llama-3.1-8b-instant",     # 500k TPD, very fast
+        "gemma2-9b-it",             # 500k TPD, good quality
+        "mixtral-8x7b-32768",       # 500k TPD, long context
+    ]
+    
     def __init__(self, config: LLMConfig):
         super().__init__(config)
+        self.primary_model = config.model
+        self.current_model = config.model
+        self._rate_limited_models = set()  # Track which models are rate limited
         try:
             from groq import Groq
             self.client = Groq(api_key=os.getenv("GROQ_API_KEY"))
         except ImportError:
             raise ImportError("Please install groq: pip install groq")
+    
+    def _get_available_model(self) -> str:
+        """Get an available model, falling back if primary is rate limited."""
+        if self.primary_model not in self._rate_limited_models:
+            return self.primary_model
+        
+        for fallback in self.FALLBACK_MODELS:
+            if fallback not in self._rate_limited_models:
+                if self.current_model != fallback:
+                    print(f"  ⚠️ Falling back to model: {fallback}")
+                return fallback
+        
+        # All models rate limited, try primary anyway
+        return self.primary_model
     
     def chat(
         self,
@@ -164,17 +192,36 @@ class GroqClient(BaseLLMClient):
         temperature: Optional[float] = None,
         max_tokens: Optional[int] = None,
     ) -> str:
-        def _make_request():
-            response = self.client.chat.completions.create(
-                model=self.config.model,
-                messages=messages,
-                temperature=temperature or self.config.temperature,
-                max_tokens=max_tokens or self.config.max_tokens,
-            )
-            return response.choices[0].message.content.strip()
+        last_error = None
         
-        # Use retry logic for API calls
-        return retry_llm_call(_make_request, max_retries=self.config.max_retries)
+        # Try available models
+        for attempt in range(len(self.FALLBACK_MODELS) + 2):
+            self.current_model = self._get_available_model()
+            
+            try:
+                response = self.client.chat.completions.create(
+                    model=self.current_model,
+                    messages=messages,
+                    temperature=temperature or self.config.temperature,
+                    max_tokens=max_tokens or self.config.max_tokens,
+                )
+                return response.choices[0].message.content.strip()
+            
+            except Exception as e:
+                error_str = str(e)
+                last_error = e
+                
+                # Check if it's a rate limit error
+                if "rate_limit" in error_str.lower() or "429" in error_str:
+                    self._rate_limited_models.add(self.current_model)
+                    print(f"  ⚠️ Rate limited on {self.current_model}, trying fallback...")
+                    continue
+                else:
+                    # Non-rate-limit error, raise immediately
+                    raise
+        
+        # All models exhausted
+        raise last_error or Exception("All Groq models rate limited")
 
 
 class GeminiClient(BaseLLMClient):

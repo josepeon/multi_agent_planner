@@ -128,13 +128,19 @@ class DeveloperAgent:
             "method": result.get("method_used"),
         }
 
-    def develop(self, task: Task, critic=None) -> dict:
+    def develop(self, task: Task, critic=None, feedback_message: str = None) -> dict:
         """
         Develop code for a task with optional critic feedback loop.
         
+        Args:
+            task: The task to develop code for
+            critic: Optional critic agent for internal retry (deprecated, use orchestrator retry)
+            feedback_message: Optional feedback from previous failed attempt
+        
         Uses sandboxed execution for safety.
         """
-        task_code = self.write_code(task.description)
+        # Pass feedback to write_code if provided (from orchestrator retry loop)
+        task_code = self.write_code(task.description, feedback_message=feedback_message)
         
         # Save generated code for reference
         with open("generated_code.py", "w") as f:
@@ -148,6 +154,7 @@ class DeveloperAgent:
         if exec_result.get("error"):
             output = f"{output}\nError: {exec_result['error']}"
 
+        # Legacy critic support (orchestrator now handles retry loop)
         if not passed and critic:
             feedback = critic.review(task.description, task_code, output)
             revised_code = self.revise_code(task, task_code, feedback)

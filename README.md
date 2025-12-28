@@ -2,13 +2,15 @@
 
 **LLM-powered system that solves coding tasks through agent collaboration.**
 
-This project implements a multi-agent architecture using LLM-based agents, where each role has a specific function. A **Planner Agent** breaks down tasks, a **Developer Agent** writes code, a **QA Agent** validates execution, and a **Critic Agent** suggests improvements.
+This project implements a multi-agent architecture using LLM-based agents, where each role has a specific function. A **Planner Agent** breaks down tasks, an **Architect Agent** creates high-level designs, a **Developer Agent** writes code, a **QA Agent** validates execution, a **Critic Agent** suggests improvements, and an **Integrator Agent** merges code into a cohesive program.
 
 ## ✨ Key Features
 
 - 🆓 **Free by Default** - Uses Groq's free Llama 3.3 70B API
+- 🏗️ **Architecture-First** - Architect agent creates design before coding
+- 🔄 **Smart Retry** - Failed tasks retry up to 3x with critic feedback
+- 🧠 **Shared Context** - Agents share knowledge of defined classes/functions
 - 🔒 **Sandboxed Execution** - Safe code execution with multiple isolation methods
-- 🔄 **Auto-Retry** - Exponential backoff for API resilience
 - 🔌 **Multi-Provider** - Switch between Groq, Gemini, Ollama, OpenAI, OpenRouter
 - 💾 **Persistent Memory** - Caches results to avoid redundant API calls
 - 🧩 **Modular Design** - Easy to extend with new agents
@@ -49,12 +51,13 @@ Generated code runs in isolated environments to prevent malicious operations:
 *"Create a command-line tool that parses a CSV file and returns JSON-formatted summary statistics."*
 
 System output:
-1. **Planner** → Breaks task into atomic subtasks
-2. **Developer** → Writes Python code for each subtask (sandboxed execution)
-3. **QA Agent** → Validates execution and correctness
-4. **Critic** → Reviews failed code, suggests fixes
-5. **Developer** → Revises and retries failed tasks (with exponential backoff)
-6. **Assembler** → Generates clean, deduplicated final program
+1. **Planner** → Breaks task into 2-4 logical modules
+2. **Architect** → Creates high-level design (classes, interfaces, dependencies)
+3. **Developer** → Writes Python code for each module
+4. **QA Agent** → Validates execution in sandbox
+5. **Critic** → Reviews failed code, provides feedback
+6. **Developer** → Retries with critic feedback (up to 3 attempts)
+7. **Integrator** → Intelligently merges all code into final program
 
 ---
 
@@ -63,22 +66,25 @@ System output:
 ```
 multi_agent_planner/
 ├── agents/
-│   ├── planner.py       # Task decomposition
+│   ├── planner.py       # Task decomposition (2-4 logical modules)
+│   ├── architect.py     # High-level design (NEW)
 │   ├── developer.py     # Code generation + sandboxed execution
 │   ├── qa.py            # Code validation
-│   ├── critic.py        # Code review
+│   ├── critic.py        # Code review & feedback
+│   ├── integrator.py    # Intelligent code merging (NEW)
 │   └── base_agent.py    # Abstract base class
 ├── core/
-│   ├── orchestrator.py  # Pipeline coordinator
+│   ├── orchestrator.py  # Pipeline coordinator with retry logic
+│   ├── shared_context.py # Shared memory across agents (NEW)
 │   ├── llm_provider.py  # Multi-provider LLM abstraction
 │   ├── sandbox.py       # Sandboxed code execution
 │   ├── retry.py         # Exponential backoff retry logic
 │   ├── memory.py        # Persistent JSON memory
 │   ├── task_schema.py   # Task dataclass
-│   └── assembler.py     # Code assembly
+│   └── assembler.py     # Legacy code assembly (deprecated)
 ├── output/              # Generated outputs
 ├── memory/              # Agent memory caches
-├── logs/                # Session logs
+├── tests/               # Unit tests
 ├── main.py              # Entry point
 ├── requirements.txt
 ├── environment.yml      # Conda environment
@@ -90,11 +96,12 @@ multi_agent_planner/
 
 | Agent | Role |
 |-------|------|
-| `PlannerAgent` | Breaks user prompts into atomic, executable subtasks |
+| `PlannerAgent` | Breaks user prompts into 2-4 logical modules (not micro-tasks) |
+| `ArchitectAgent` | Creates high-level design with classes, interfaces, dependencies |
 | `DeveloperAgent` | Writes Python code with sandboxed execution |
 | `QAAgent` | Verifies code execution and correctness |
-| `CriticAgent` | Reviews failed code and suggests improvements |
-| `Assembler` | Deduplicates and combines code into final output |
+| `CriticAgent` | Reviews failed code and provides actionable feedback |
+| `IntegratorAgent` | LLM-powered intelligent code merging with AST fallback |
 
 ---
 

@@ -37,8 +37,18 @@ class SandboxConfig:
     max_memory_mb: int = 256
     max_output_size: int = 10000  # characters
     allowed_imports: List[str] = field(default_factory=lambda: [
+        # Core utilities
         "math", "random", "datetime", "json", "re", "collections",
-        "itertools", "functools", "string", "csv", "io", "statistics"
+        "itertools", "functools", "string", "csv", "io", "statistics",
+        # Modern Python essentials
+        "uuid", "dataclasses", "typing", "enum", "pathlib",
+        "abc", "copy", "operator", "contextlib",
+        # Data structures
+        "heapq", "bisect", "array",
+        # Text processing
+        "textwrap", "difflib",
+        # Testing (commonly needed)
+        "unittest", "doctest",
     ])
     docker_image: str = "python:3.11-slim"
 

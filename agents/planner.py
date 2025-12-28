@@ -14,13 +14,33 @@ class PlannerAgent:
         self.client = get_llm_client(temperature=temperature)
 
     def plan_task(self, user_prompt):
-        system_message = (
-            "You are a planning assistant. Given a user's request, "
-            "break the task down into a numbered list of clear, atomic subtasks. "
-            "Keep the list focused and executable by a developer agent. "
-            "Avoid vague or generic headings like 'Setup', 'Testing', or 'Optimization' — "
-            "instead, describe what specifically needs to be done in each step."
-        )
+        system_message = """You are a senior software architect planning a development task.
+
+Given a user's request, break it into 2-4 LOGICAL MODULES (not micro-tasks).
+
+IMPORTANT RULES:
+1. Create 2-4 modules maximum, each representing a COMPLETE, TESTABLE component
+2. Each module should produce runnable Python code that can be tested independently
+3. AVOID splitting into tiny tasks like "add a method" - group related functionality
+4. Think in terms of: Data Models, Core Logic, Interface/API, Main Entry Point
+
+GOOD EXAMPLE for "Build a todo list manager":
+1. Define Task data class with id, title, completed fields and TaskStatus enum
+2. Implement TaskManager class with add_task, complete_task, list_tasks methods
+3. Create main() function with example usage demonstrating all features
+
+BAD EXAMPLE (too granular):
+1. Create Task class
+2. Add title attribute
+3. Add completed attribute  
+4. Create TaskManager
+5. Implement add method
+6. Implement remove method
+7. Implement list method
+8. Create main function
+
+Output ONLY a numbered list of 2-4 modules. Each module description should be complete 
+enough that a developer can implement it without guessing."""
 
         user_message = f"User request: {user_prompt}"
 
@@ -38,6 +58,11 @@ class PlannerAgent:
             for line in output.split("\n")
             if re.match(r"^\s*\d+[\.\):\-]", line)
         ]
+        
+        # Limit to 4 tasks max to prevent over-fragmentation
+        if len(subtasks) > 4:
+            subtasks = subtasks[:4]
+        
         return subtasks
 
     def plan(self, user_prompt):

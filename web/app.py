@@ -173,6 +173,8 @@ if __name__ == '__main__':
     # Create output directory if it doesn't exist
     os.makedirs('output', exist_ok=True)
     
+    # Use port 8080 to avoid conflict with macOS AirPlay (port 5000)
+    port = int(os.environ.get('PORT', 8080))
     print("🚀 Starting Multi-Agent Planner Web Interface...")
-    print("📍 Open http://localhost:5000 in your browser")
-    app.run(debug=True, port=5000)
+    print(f"📍 Open http://localhost:{port} in your browser")
+    app.run(debug=True, port=port)

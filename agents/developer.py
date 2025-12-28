@@ -19,16 +19,17 @@ class DeveloperAgent:
     def __init__(self, temperature=0.3, sandbox_method="restricted"):
         self.temperature = temperature
         self.sandbox_method = sandbox_method  # 'restricted', 'docker', or 'subprocess'
-        self.client = get_llm_client(temperature=temperature, max_tokens=1024)
+        self.client = get_llm_client(temperature=temperature, max_tokens=2048)
         self.memory = Memory("memory/developer_memory.json")
 
-    def write_code(self, task_description, feedback_message=None, temperature=0.3, max_tokens=1500):
+    def write_code(self, task_description, feedback_message=None, temperature=0.3, max_tokens=2048):
         system_message = (
             "You are a senior Python developer. "
             "Your job is to write a clean, minimal Python function or code block "
             "that fulfills a single, clearly defined task. "
             "IMPORTANT: Do NOT use input() or any interactive functions - the code must run without user interaction. "
             "For GUI code, do NOT call mainloop() - just define the classes/functions. "
+            "CRITICAL: Always write COMPLETE code. Never truncate or leave code unfinished. "
             "Only return valid, complete Python code — no explanations, no markdown, no truncation."
         )
         base_prompt = f"Task: {task_description}"
@@ -40,20 +41,33 @@ class DeveloperAgent:
         if cached_code:
             return cached_code
 
-        try:
-            code = self.client.chat(
-                user_message=base_prompt,
-                system_message=system_message,
-                temperature=temperature,
-                max_tokens=max_tokens,
-            )
-            code = clean_code_block(code)
-            # Optionally remove markdown-like instructional content
-            code = code.split("```")[0].split("To execute")[0].strip()
-            self.memory.set(cache_key, code)
-            return code
-        except Exception as e:
-            return f"LLM API error: {str(e)}"
+        # Try up to 3 times to get complete code
+        for attempt in range(3):
+            try:
+                code = self.client.chat(
+                    user_message=base_prompt,
+                    system_message=system_message,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                )
+                code = clean_code_block(code)
+                # Optionally remove markdown-like instructional content
+                code = code.split("```")[0].split("To execute")[0].strip()
+                
+                # Check if code is syntactically complete
+                try:
+                    compile(code, "<string>", "exec")
+                    self.memory.set(cache_key, code)
+                    return code
+                except SyntaxError as e:
+                    if attempt < 2:  # Retry with feedback about truncation
+                        base_prompt = f"Task: {task_description}\nIMPORTANT: Your previous code was truncated/incomplete. Error: {e.msg} at line {e.lineno}. Please provide COMPLETE code."
+                        continue
+                    # Last attempt, return what we have
+                    self.memory.set(cache_key, code)
+                    return code
+            except Exception as e:
+                return f"LLM API error: {str(e)}"
     def revise_code(self, task: Task, previous_code: str, feedback_message: str) -> str:
         system_message = "You are a senior Python developer. Revise the code to address the critique. Only return valid Python code — no explanations or markdown."
         revision_prompt = (

@@ -19,25 +19,38 @@ def save_log(log_data, path="output/task_log.json"):
 def main():
     memory = Memory(filepath="output/memory.json")
     while True:
-        print("\nUSER PROMPT")
-        user_prompt = input("What would you like the system to build?\n> ")
+        try:
+            print("\nUSER PROMPT")
+            user_prompt = input("What would you like the system to build?\n> ")
+            
+            if not user_prompt.strip():
+                print("No input provided. Please enter a project description.")
+                continue
 
-        task = Task(id=memory.get("last_task_id", 0) + 1, description=user_prompt)
-        memory.set("last_task_id", int(task.id))
+            task = Task(id=memory.get("last_task_id", 0) + 1, description=user_prompt)
+            memory.set("last_task_id", int(task.id))
 
-        result = run_orchestrator(task)
-        task.status = "complete"
-        task.result = result
+            result = run_orchestrator(task)
+            task.status = "complete"
+            task.result = result
 
-        memory.set(f"task_{task.id}", asdict(task))
-        save_log(asdict(task))
+            memory.set(f"task_{task.id}", asdict(task))
+            save_log(asdict(task))
 
-        print("\nFINAL OUTPUT:")
-        print(result)
+            print("\nFINAL OUTPUT:")
+            print(result)
 
-        again = input("\nWould you like to build another project? (y/n): ")
-        if again.strip().lower() != 'y':
-            print("Exiting the system. Goodbye!")
+            again = input("\nWould you like to build another project? (y/n): ")
+            if again.strip().lower() != 'y':
+                print("Exiting the system. Goodbye!")
+                break
+                
+        except EOFError:
+            # Graceful exit when input is piped or stdin is closed
+            print("\nExiting the system. Goodbye!")
+            break
+        except KeyboardInterrupt:
+            print("\n\nInterrupted. Exiting the system. Goodbye!")
             break
 
 if __name__ == "__main__":

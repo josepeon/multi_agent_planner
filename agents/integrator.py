@@ -256,20 +256,23 @@ Create the final integrated Python program:"""
 
 RULES:
 1. Organize code into appropriate files based on their purpose:
-   - models.py: Data classes, dataclasses, Pydantic models
+   - models.py: Data classes, dataclasses, Pydantic models, Enums
    - services.py: Business logic, service classes
-   - utils.py: Helper functions, utilities
+   - utils.py: Helper functions, utilities, CLI classes
    - main.py: Entry point with main() function
-2. Add proper imports between files (e.g., "from models import ClassName")
-3. Each file should be self-contained and runnable
+2. CRITICAL: Add ALL necessary imports between files:
+   - If services.py uses TaskStatus from models.py, add: "from models import Task, TaskStatus"
+   - If utils.py uses TodoList from services.py, add: "from services import TodoList"
+   - Import EVERY class/enum/function that is used from another file
+3. Each file must be syntactically valid Python
 4. The main.py should import from other modules and have a main() function
 
 OUTPUT FORMAT (MUST follow exactly):
 ```json
 {
   "files": {
-    "models.py": "# models.py\\nfrom dataclasses import dataclass\\n...",
-    "services.py": "# services.py\\nfrom models import ...\\n...",
+    "models.py": "# models.py\\nfrom dataclasses import dataclass\\nfrom enum import Enum\\n...",
+    "services.py": "# services.py\\nfrom models import Task, TaskStatus\\n...",
     "main.py": "# main.py\\nfrom services import ...\\ndef main():\\n    ...\\nif __name__ == '__main__':\\n    main()"
   }
 }
@@ -306,6 +309,9 @@ Create the multi-file project structure as JSON:"""
                     f.write(content)
                 print(f"  📄 Created: {filepath}")
             
+            # Validate imports between files
+            self._validate_multifile_imports(files, output_dir)
+            
             return files
             
         except Exception as e:
@@ -313,6 +319,91 @@ Create the multi-file project structure as JSON:"""
             # Fallback to single file
             single_file = self.integrate(session_log)
             return {"main.py": single_file}
+    
+    def _validate_multifile_imports(self, files: Dict[str, str], output_dir: str):
+        """Validate and fix imports between generated files."""
+        # Collect all defined classes/functions per file
+        definitions = {}  # {filename: {class_names, function_names}}
+        
+        for filename, content in files.items():
+            if not filename.endswith(".py"):
+                continue
+            try:
+                tree = ast.parse(content)
+                defs = {"classes": set(), "functions": set(), "enums": set()}
+                for node in ast.walk(tree):
+                    if isinstance(node, ast.ClassDef):
+                        # Check if it's an Enum
+                        for base in node.bases:
+                            if isinstance(base, ast.Name) and base.id == "Enum":
+                                defs["enums"].add(node.name)
+                                break
+                        else:
+                            defs["classes"].add(node.name)
+                    elif isinstance(node, ast.FunctionDef) and node.col_offset == 0:
+                        defs["functions"].add(node.name)
+                definitions[filename] = defs
+            except:
+                pass
+        
+        # Check each file for missing imports
+        for filename, content in files.items():
+            if not filename.endswith(".py"):
+                continue
+            
+            missing_imports = []
+            
+            # Check what names are used but not defined locally
+            try:
+                tree = ast.parse(content)
+                local_defs = definitions.get(filename, {"classes": set(), "functions": set(), "enums": set()})
+                local_names = local_defs["classes"] | local_defs["functions"] | local_defs["enums"]
+                
+                for node in ast.walk(tree):
+                    if isinstance(node, ast.Name):
+                        name = node.id
+                        # Skip builtins and already defined
+                        if name in local_names or name in dir(__builtins__):
+                            continue
+                        
+                        # Check if defined in another file
+                        for other_file, other_defs in definitions.items():
+                            if other_file == filename:
+                                continue
+                            all_defs = other_defs["classes"] | other_defs["functions"] | other_defs["enums"]
+                            if name in all_defs:
+                                module = other_file.replace(".py", "")
+                                missing_imports.append((module, name))
+                
+                # Add missing imports
+                if missing_imports:
+                    # Group by module
+                    by_module = {}
+                    for module, name in set(missing_imports):
+                        by_module.setdefault(module, set()).add(name)
+                    
+                    # Build import statements
+                    import_lines = []
+                    for module, names in by_module.items():
+                        import_lines.append(f"from {module} import {', '.join(sorted(names))}")
+                    
+                    # Check if imports already exist
+                    for imp in import_lines:
+                        if imp not in content:
+                            print(f"  ⚠️ Adding missing import to {filename}: {imp}")
+                            # Insert after first line (comment) or at top
+                            lines = content.split("\n")
+                            insert_pos = 1 if lines[0].startswith("#") else 0
+                            lines.insert(insert_pos, imp)
+                            content = "\n".join(lines)
+                            
+                            # Save fixed file
+                            filepath = os.path.join(output_dir, filename)
+                            with open(filepath, "w") as f:
+                                f.write(content)
+                            files[filename] = content
+            except:
+                pass
     
     def _parse_multifile_output(self, output: str) -> Dict[str, str]:
         """Parse the LLM output to extract file contents."""

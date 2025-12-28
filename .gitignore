@@ -13,13 +13,18 @@ __pycache__/
 dist/
 build/
 .eggs/
+*.whl
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
 
-# ----- Environment -----
+# ----- Virtual Environments -----
 .env
 .env.local
 .env.*.local
 .venv/
 venv/
+ENV/
 env/
 *.conda
 
@@ -31,18 +36,38 @@ env/
 *.bak
 *~
 .history/
+*.sublime-project
+*.sublime-workspace
 
 # ----- OS -----
 .DS_Store
 Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ----- Testing -----
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
 # ----- Jupyter -----
 .ipynb_checkpoints/
-*.ipynb_checkpoints
 
 # ----- Logs -----
 *.log
 logs/
+
+# ----- Media Files -----
+*.mov
+*.mp4
+*.gif
+*.avi
+*.mkv
 
 # ----- Project Specific -----
 
@@ -60,15 +85,5 @@ hello_world.py
 final_program.py
 final_program_*.py
 
-# Test files
-test_*.py
-!tests/test_*.py
-example.py
-
 # Session logs (contain potentially sensitive data)
 session-*.json
-
-# Unix system files
-.DS_Store*.mov
-*.mp4
-*.gif

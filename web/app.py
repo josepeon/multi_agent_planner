@@ -326,6 +326,7 @@ if __name__ == '__main__':
     # Use port 8080 to avoid conflict with macOS AirPlay (port 5000)
     port = int(os.environ.get('PORT', 8080))
     host = os.environ.get('HOST', '0.0.0.0')
+    debug = os.environ.get('FLASK_DEBUG', 'false').lower() == 'true'
     print("🚀 Starting Multi-Agent Planner Web Interface...")
     print(f"📍 Open http://localhost:{port} in your browser")
-    app.run(debug=True, host=host, port=port)
+    app.run(debug=debug, host=host, port=port)

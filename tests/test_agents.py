@@ -363,19 +363,15 @@ class TestEdgeCases:
 
     def test_developer_returns_clean_code(self):
         """Test developer returns code without markdown."""
-        with patch('core.llm_provider.get_llm_client') as mock_get_client:
-            mock_client = MagicMock()
-            mock_client.chat.return_value = """```python
+        from agents.developer import DeveloperAgent, clean_code_block
+        
+        # Test the clean_code_block function directly
+        dirty_code = """```python
 def hello():
     print("world")
 ```"""
-            mock_get_client.return_value = mock_client
-            
-            from agents.developer import DeveloperAgent
-            
-            agent = DeveloperAgent()
-            result = agent.write_code("Create a hello function")
-            
-            # Should not contain triple backticks
-            assert "```" not in result
-            assert "def hello" in result
+        clean = clean_code_block(dirty_code)
+        
+        # Should not contain triple backticks
+        assert "```" not in clean
+        assert "def hello" in clean

@@ -1,6 +1,4 @@
-# Docker Ignore File
-# ==================
-# Files and directories to exclude from Docker build context
+# Multi-Agent Planner - Docker Ignore
 
 # Git
 .git
@@ -9,52 +7,31 @@
 # Python
 __pycache__
 *.py[cod]
-*$py.class
-*.so
-.Python
-*.egg-info
-.eggs
-*.egg
 .venv
 venv
-ENV
+*.egg-info
 
 # IDE
 .vscode
 .idea
-*.swp
-*.swo
 
 # Testing
 .pytest_cache
 .coverage
 htmlcov
-.tox
-.nox
+tests/
 
 # Build
 build
 dist
 
-# Project specific - don't include in Docker
-logs/*.json
-output/*.py
-output/*.md
-output/*.json
-memory/*.json
+# Project specific
+output/*
+memory/*
 *.log
 .env
 .env.local
 
-# Documentation
-docs
+# Docs
 *.md
 !README.md
-
-# Development
-tests
-*.ipynb
-MyNewProject
-generated_code.py
-hello_world.py
-assemble.py

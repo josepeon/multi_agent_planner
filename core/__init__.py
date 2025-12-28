@@ -8,7 +8,6 @@ This package contains core functionality:
 - retry: Exponential backoff retry logic
 - memory: Persistent JSON memory
 - task_schema: Task dataclass
-- assembler: Code assembly utilities
 - logger: Structured logging
 """
 
@@ -28,8 +27,6 @@ __all__ = [
     "Memory",
     # Schema
     "Task",
-    # Assembler
-    "assemble_code_from_log",
     # Logging
     "get_logger",
     "setup_logging",
@@ -56,9 +53,6 @@ def __getattr__(name):
     elif name == "Task":
         from core.task_schema import Task
         return Task
-    elif name == "assemble_code_from_log":
-        from core.assembler import assemble_code_from_log
-        return assemble_code_from_log
     elif name in ("get_logger", "setup_logging"):
         from core.logger import get_logger, setup_logging
         return get_logger if name == "get_logger" else setup_logging

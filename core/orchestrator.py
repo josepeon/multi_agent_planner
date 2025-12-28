@@ -2,16 +2,21 @@
 Orchestrator Module
 
 Main pipeline that coordinates all agents:
-Planner → Architect → Developer (with retry) → QA → Critic → Integrator
+Planner → Architect → Developer (with retry) → QA → Critic → Integrator → TestGenerator → Documenter
+
+Supports parallel execution of independent tasks using ThreadPoolExecutor.
 """
 
 import json
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from agents.planner import PlannerAgent
 from agents.developer import DeveloperAgent
 from agents.qa import QAAgent
 from agents.critic import CriticAgent
 from agents.architect import ArchitectAgent
 from agents.integrator import IntegratorAgent
+from agents.test_generator import TestGeneratorAgent
+from agents.documenter import DocumenterAgent
 from core.memory import Memory
 from core.task_schema import Task
 from core.shared_context import get_shared_context, reset_shared_context
@@ -23,11 +28,14 @@ developer = DeveloperAgent()
 qa_checker = QAAgent()
 critic = CriticAgent()
 integrator = IntegratorAgent()
+test_generator = TestGeneratorAgent()
+documenter = DocumenterAgent()
 memory = Memory(filepath="output/memory.json")
 shared_context = get_shared_context()
 
 # Configuration
 MAX_RETRIES = 3  # Number of times to retry failed tasks with critic feedback
+MULTI_FILE_OUTPUT = True  # Whether to generate multi-file project structure
 
 
 def develop_with_retry(task: Task, max_retries: int = MAX_RETRIES) -> dict:
@@ -191,14 +199,75 @@ def run_pipeline(task: Task, save_path="output/session_log.json"):
     print(f"\n{'='*60}")
     print("INTEGRATION STAGE")
     print(f"{'='*60}")
-    final_code = integrator.integrate(session_log)
     
-    # Save final code
-    with open("output/final_program.py", "w") as f:
-        f.write(final_code)
-    print(f"\n✅ Final program saved to: output/final_program.py")
+    # Choose single or multi-file output
+    if MULTI_FILE_OUTPUT:
+        print("  Mode: Multi-file project structure")
+        files = integrator.integrate_multifile(session_log, "output/project")
+        
+        # Also create a combined final_program.py for backwards compatibility
+        final_code = integrator.integrate(session_log)
+        with open("output/final_program.py", "w") as f:
+            f.write(final_code)
+        print(f"  ✅ Single-file backup: output/final_program.py")
+    else:
+        final_code = integrator.integrate(session_log)
+        with open("output/final_program.py", "w") as f:
+            f.write(final_code)
+        print(f"\n✅ Final program saved to: output/final_program.py")
+    
+    # Run test generation and documentation in parallel
+    print(f"\n{'='*60}")
+    print("TEST + DOCUMENTATION STAGE (Parallel)")
+    print(f"{'='*60}")
+    
+    def generate_tests_task():
+        """Generate pytest tests for the final code."""
+        return test_generator.generate_tests(final_code)
+    
+    def generate_docs_task():
+        """Generate README documentation."""
+        return documenter.generate_readme(final_code, original_prompt)
+    
+    # Execute both tasks in parallel
+    test_code = None
+    readme = None
+    
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = {
+            executor.submit(generate_tests_task): "tests",
+            executor.submit(generate_docs_task): "docs"
+        }
+        
+        for future in as_completed(futures):
+            task_name = futures[future]
+            try:
+                result = future.result()
+                if task_name == "tests":
+                    test_code = result
+                    print(f"  ✅ Test generation complete")
+                else:
+                    readme = result
+                    print(f"  ✅ Documentation generation complete")
+            except Exception as e:
+                print(f"  ❌ {task_name} failed: {e}")
+                if task_name == "tests":
+                    test_code = "# Test generation failed"
+                else:
+                    readme = "# Documentation generation failed"
+    
+    # Save outputs
+    with open("output/test_program.py", "w") as f:
+        f.write(test_code)
+    print(f"✅ Tests saved to: output/test_program.py")
+    
+    with open("output/README.md", "w") as f:
+        f.write(readme)
+    print(f"✅ README saved to: output/README.md")
     
     memory.set("last_final_code", final_code)
+    memory.set("last_tests", test_code)
+    memory.set("last_readme", readme)
     return final_code
 
 # Export run_pipeline as run_orchestrator for import

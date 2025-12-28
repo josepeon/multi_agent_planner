@@ -11,6 +11,9 @@ tqdm>=4.65.0
 # LLM Provider - Groq (FREE - Default)
 groq>=1.0.0
 
+# Web Interface
+flask>=3.0.0
+
 # Optional: Additional LLM Providers
 # Uncomment the ones you need:
 

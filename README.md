@@ -67,28 +67,39 @@ System output:
 multi_agent_planner/
 ├── agents/
 │   ├── planner.py       # Task decomposition (2-4 logical modules)
-│   ├── architect.py     # High-level design (NEW)
+│   ├── architect.py     # High-level design
 │   ├── developer.py     # Code generation + sandboxed execution
 │   ├── qa.py            # Code validation
 │   ├── critic.py        # Code review & feedback
-│   ├── integrator.py    # Intelligent code merging (NEW)
+│   ├── integrator.py    # Intelligent code merging
+│   ├── test_generator.py # Pytest test generation (NEW)
+│   ├── documenter.py    # README & docstring generation (NEW)
 │   └── base_agent.py    # Abstract base class
 ├── core/
-│   ├── orchestrator.py  # Pipeline coordinator with retry logic
-│   ├── shared_context.py # Shared memory across agents (NEW)
+│   ├── orchestrator.py  # Pipeline with parallel execution
+│   ├── shared_context.py # Shared memory with code snippets
 │   ├── llm_provider.py  # Multi-provider LLM abstraction
 │   ├── sandbox.py       # Sandboxed code execution
 │   ├── retry.py         # Exponential backoff retry logic
 │   ├── memory.py        # Persistent JSON memory
 │   ├── task_schema.py   # Task dataclass
 │   └── assembler.py     # Legacy code assembly (deprecated)
+├── web/                 # Web Interface (NEW)
+│   ├── app.py           # Flask web server
+│   └── templates/
+│       └── index.html   # Web UI
 ├── output/              # Generated outputs
+│   ├── final_program.py # Single-file output
+│   ├── test_program.py  # Generated tests
+│   ├── README.md        # Generated documentation
+│   └── project/         # Multi-file output (if enabled)
 ├── memory/              # Agent memory caches
 ├── tests/               # Unit tests
-├── main.py              # Entry point
+├── main.py              # CLI entry point
 ├── requirements.txt
 ├── environment.yml      # Conda environment
 ├── .env.example         # Environment template
+├── IMPROVEMENTS.md      # Progress tracker
 └── README.md
 ```
 
@@ -102,6 +113,47 @@ multi_agent_planner/
 | `QAAgent` | Verifies code execution and correctness |
 | `CriticAgent` | Reviews failed code and provides actionable feedback |
 | `IntegratorAgent` | LLM-powered intelligent code merging with AST fallback |
+| `TestGeneratorAgent` | Generates comprehensive pytest test suites |
+| `DocumenterAgent` | Creates README.md and adds docstrings |
+
+---
+
+## 🌐 Web Interface
+
+The system includes a web-based UI for easier interaction:
+
+```bash
+# Install Flask if not already installed
+pip install flask
+
+# Run the web server
+cd multi_agent_planner
+python web/app.py
+```
+
+Then open http://localhost:5000 in your browser.
+
+**Features:**
+- Simple input form for project descriptions
+- Real-time generation status
+- Tabbed output view (Code, Tests, README)
+- Download project as ZIP
+- Example prompts for quick testing
+
+---
+
+## 📦 Output Options
+
+### Single File (default)
+```python
+# output/final_program.py - All code in one file
+```
+
+### Multi-File Project
+Enable multi-file output in `core/orchestrator.py`:
+```python
+MULTI_FILE_OUTPUT = True  # Creates output/project/ with models.py, services.py, main.py
+```
 
 ---
 

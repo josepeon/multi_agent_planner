@@ -30,6 +30,8 @@ class DeveloperAgent:
             "IMPORTANT: Do NOT use input() or any interactive functions - the code must run without user interaction. "
             "For GUI code, do NOT call mainloop() - just define the classes/functions. "
             "CRITICAL: Always write COMPLETE code. Never truncate or leave code unfinished. "
+            "CRITICAL: If classes or functions are shown in the context as 'Already Defined', DO NOT REDEFINE THEM. "
+            "Just use them directly - assume they are imported and available. "
             "Only return valid, complete Python code — no explanations, no markdown, no truncation."
         )
         base_prompt = f"Task: {task_description}"

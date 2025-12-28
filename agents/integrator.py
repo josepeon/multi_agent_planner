@@ -9,12 +9,15 @@ Unlike the simple assembler, this agent:
 - Resolves import conflicts
 - Ensures consistent interfaces
 - Validates the final output
+- Supports multi-file output for larger projects
 """
 
 from core.llm_provider import get_llm_client
 from core.shared_context import get_shared_context
-from typing import List, Dict
+from typing import List, Dict, Tuple
 import ast
+import os
+import json
 
 
 class IntegratorAgent:
@@ -218,3 +221,135 @@ Create the final integrated Python program:"""
             final_code += '\n\nif __name__ == "__main__":\n    main()\n'
         
         return final_code
+    def integrate_multifile(self, session_log: Dict, output_dir: str = "output/project") -> Dict[str, str]:
+        """
+        Integrate code into multiple files for better project structure.
+        
+        Args:
+            session_log: The session log containing all task results
+            output_dir: Directory to save the generated files
+            
+        Returns:
+            Dictionary mapping filenames to their contents
+        """
+        
+        # Collect all code blocks
+        code_blocks = []
+        for task_entry in session_log.get("tasks", []):
+            code = task_entry.get("code", "")
+            if code and isinstance(code, str) and code.strip():
+                code_blocks.append({
+                    "task": task_entry.get("task", "Unknown task"),
+                    "code": code,
+                    "status": task_entry.get("status", "unknown")
+                })
+        
+        if not code_blocks:
+            return {"main.py": "# No code generated"}
+        
+        # Build the code blocks section
+        blocks_str = ""
+        for i, block in enumerate(code_blocks, 1):
+            blocks_str += f"\n### Task {i}: {block['task']}\n```python\n{block['code']}\n```\n"
+        
+        system_message = """You are a senior Python developer organizing code into a proper multi-file project structure.
+
+RULES:
+1. Organize code into appropriate files based on their purpose:
+   - models.py: Data classes, dataclasses, Pydantic models
+   - services.py: Business logic, service classes
+   - utils.py: Helper functions, utilities
+   - main.py: Entry point with main() function
+2. Add proper imports between files (e.g., "from models import ClassName")
+3. Each file should be self-contained and runnable
+4. The main.py should import from other modules and have a main() function
+
+OUTPUT FORMAT (MUST follow exactly):
+```json
+{
+  "files": {
+    "models.py": "# models.py\\nfrom dataclasses import dataclass\\n...",
+    "services.py": "# services.py\\nfrom models import ...\\n...",
+    "main.py": "# main.py\\nfrom services import ...\\ndef main():\\n    ...\\nif __name__ == '__main__':\\n    main()"
+  }
+}
+```
+
+Only include files that are needed. For simple projects, just use main.py.
+Output ONLY the JSON, no explanation."""
+
+        user_message = f"""Original Request: {session_log.get("prompt", "")}
+
+Code blocks to organize:
+{blocks_str}
+
+Create the multi-file project structure as JSON:"""
+
+        try:
+            output = self.client.chat(
+                user_message=user_message,
+                system_message=system_message,
+                temperature=self.temperature,
+                max_tokens=4000
+            )
+            
+            # Parse JSON output
+            files = self._parse_multifile_output(output)
+            
+            # Create output directory
+            os.makedirs(output_dir, exist_ok=True)
+            
+            # Save files
+            for filename, content in files.items():
+                filepath = os.path.join(output_dir, filename)
+                with open(filepath, "w") as f:
+                    f.write(content)
+                print(f"  📄 Created: {filepath}")
+            
+            return files
+            
+        except Exception as e:
+            print(f"  Multi-file integration error: {e}")
+            # Fallback to single file
+            single_file = self.integrate(session_log)
+            return {"main.py": single_file}
+    
+    def _parse_multifile_output(self, output: str) -> Dict[str, str]:
+        """Parse the LLM output to extract file contents."""
+        output = output.strip()
+        
+        # Remove markdown code fences if present
+        if "```json" in output:
+            start = output.find("```json") + 7
+            end = output.rfind("```")
+            output = output[start:end].strip()
+        elif "```" in output:
+            start = output.find("```") + 3
+            end = output.rfind("```")
+            output = output[start:end].strip()
+        
+        try:
+            data = json.loads(output)
+            files = data.get("files", {})
+            
+            # Validate each file has valid Python syntax
+            validated_files = {}
+            for filename, content in files.items():
+                # Unescape newlines if they were escaped
+                content = content.replace("\\n", "\n")
+                
+                if filename.endswith(".py"):
+                    try:
+                        ast.parse(content)
+                        validated_files[filename] = content
+                    except SyntaxError as e:
+                        print(f"  ⚠️ Syntax error in {filename}: {e}")
+                        validated_files[filename] = f"# Syntax error in generated code\n# {e}\n\n{content}"
+                else:
+                    validated_files[filename] = content
+            
+            return validated_files if validated_files else {"main.py": "# No valid files generated"}
+            
+        except json.JSONDecodeError as e:
+            print(f"  JSON parse error: {e}")
+            return {"main.py": "# Failed to parse multi-file output"}

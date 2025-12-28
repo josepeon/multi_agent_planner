@@ -4,80 +4,91 @@
 
 | # | Improvement | Priority | Status | Notes |
 |---|-------------|----------|--------|-------|
-| 1 | Expand sandbox allowed imports | Quick Win | ✅ Done | Added uuid, dataclasses, typing, enum, pathlib, unittest, etc |
-| 2 | Add retry loop with critic feedback | Medium | ✅ Done | develop_with_retry() in orchestrator, MAX_RETRIES=3 |
-| 3 | Add shared context memory | Medium | ✅ Done | core/shared_context.py created, integrated into orchestrator |
-| 4 | Smarter planner (fewer tasks) | Medium | ✅ Done | Better prompt, max 4 tasks, logical modules |
-| 5 | Add Architect agent | Large | ✅ Done | agents/architect.py, creates design before coding |
-| 6 | Add Integrator agent | Large | ✅ Done | agents/integrator.py, LLM-based intelligent merging |
+| 1 | Parallel task execution | Medium | ✅ Done | Test + Documentation run in parallel using ThreadPoolExecutor |
+| 2 | File-based output | Medium | ✅ Done | Multi-file project structure (models.py, services.py, main.py) |
+| 3 | Unit test generation | Medium | ✅ Done | agents/test_generator.py, generates pytest tests |
+| 4 | Documentation agent | Medium | ✅ Done | agents/documenter.py, generates README.md |
+| 5 | Better shared context | Medium | ✅ Done | Now includes actual code snippets |
+| 6 | Web UI / API interface | Large | ✅ Done | Flask web app at web/app.py |
+
+---
+
+## Completed (Previous Round)
+
+- ✅ Expand sandbox allowed imports
+- ✅ Add retry loop with critic feedback
+- ✅ Add shared context memory
+- ✅ Smarter planner (fewer tasks)
+- ✅ Add Architect agent
+- ✅ Add Integrator agent
+- ✅ Fix QA to trust sandbox results
 
 ---
 
 ## Problem Details
 
-### 1. Expand Sandbox Allowed Imports
-**Current**: `math, random, datetime, json, re, collections, itertools, functools, string, csv, io, statistics`
+### 1. Parallel Task Execution
+**Current**: Tasks run sequentially, one after another.
 
-**Add**: `uuid, dataclasses, typing, enum, pathlib, abc, copy, operator`
+**Fix**: Run independent tasks in parallel using asyncio or ThreadPoolExecutor.
 
-**Why**: Tests fail because common Python stdlib modules are blocked.
+**Benefits**: Faster execution, better API utilization.
 
-**File**: `core/sandbox.py`
-
----
-
-### 2. Add Retry Loop with Critic Feedback
-**Current**: Critic reviews failed code but feedback is NOT sent back to developer for retry.
-
-**Fix**: When QA fails, send critic feedback to developer and retry up to 3 times.
-
-**Files**: `core/orchestrator.py`, `agents/developer.py`
+**Files**: `core/orchestrator.py`
 
 ---
 
-### 3. Add Shared Context Memory
-**Current**: Each task generates standalone code with no awareness of other tasks.
+### 2. File-Based Output
+**Current**: All code goes into a single `final_program.py` file.
 
-**Fix**: Create SharedContext class that stores:
-- Architecture specification
-- Previously generated code
-- Interface definitions
+**Fix**: Generate multi-file projects with proper structure:
+- `models.py` - data classes
+- `services.py` - business logic
+- `main.py` - entry point
 
-**Files**: `core/shared_context.py` (NEW), update all agents
-
----
-
-### 4. Smarter Planner (Fewer Tasks)
-**Current**: Planner creates 8-10 micro-tasks like "implement add method".
-
-**Fix**: Create 2-4 logical modules that are complete, testable units.
-
-**File**: `agents/planner.py`
+**Files**: `agents/integrator.py`, `core/orchestrator.py`
 
 ---
 
-### 5. Add Architect Agent
-**Current**: No high-level design phase - code structure emerges randomly.
+### 3. Unit Test Generation
+**Current**: No automated tests for generated code.
 
-**Fix**: New agent that creates:
-- File structure
-- Class/function signatures
-- Dependencies between components
+**Fix**: Add a TestGenerator agent that creates pytest tests for the generated code.
 
-**File**: `agents/architect.py` (NEW)
+**Files**: `agents/test_generator.py` (NEW)
 
 ---
 
-### 6. Add Integrator Agent
-**Current**: Assembler just concatenates code blocks naively.
+### 4. Documentation Agent
+**Current**: Code has minimal documentation.
 
-**Fix**: New agent that:
-- Merges code intelligently
-- Resolves conflicts
-- Ensures interfaces match
-- Validates final output
+**Fix**: Add a Documentation agent that:
+- Adds comprehensive docstrings
+- Generates a README.md for the project
+- Adds type hints where missing
 
-**File**: `agents/integrator.py` (NEW), replace `core/assembler.py`
+**Files**: `agents/documenter.py` (NEW)
+
+---
+
+### 5. Better Shared Context
+**Current**: SharedContext only stores class/function names.
+
+**Fix**: Store actual code snippets so later tasks can reference exact implementations.
+
+**Files**: `core/shared_context.py`, `core/orchestrator.py`
+
+---
+
+### 6. Web UI / API Interface
+**Current**: CLI-only interface.
+
+**Fix**: Add a simple Flask/FastAPI web interface:
+- Input: project description
+- Output: generated code with syntax highlighting
+- Download as ZIP
+
+**Files**: `web/app.py` (NEW), `web/templates/` (NEW)
 
 ---
 

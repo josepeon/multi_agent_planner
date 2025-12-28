@@ -143,6 +143,35 @@ class SharedContext:
         
         return classes, functions
     
+    def _extract_class_definition(self, code: str, class_name: str) -> Optional[str]:
+        """Extract a specific class definition from code."""
+        import ast
+        try:
+            tree = ast.parse(code)
+            for node in ast.iter_child_nodes(tree):
+                if isinstance(node, ast.ClassDef) and node.name == class_name:
+                    return ast.get_source_segment(code, node)
+        except SyntaxError:
+            pass
+        return None
+    
+    def _extract_function_signature(self, code: str, func_name: str) -> Optional[str]:
+        """Extract function signature (def line) from code."""
+        import ast
+        try:
+            tree = ast.parse(code)
+            for node in ast.iter_child_nodes(tree):
+                if isinstance(node, ast.FunctionDef) and node.name == func_name:
+                    # Get just the first line (signature)
+                    source = ast.get_source_segment(code, node)
+                    if source:
+                        first_line = source.split('\n')[0]
+                        # Clean up and return
+                        return first_line.strip().rstrip(':')
+        except SyntaxError:
+            pass
+        return None
+    
     def get_defined_classes(self) -> List[str]:
         """Get list of all defined class names."""
         return list(self.defined_classes.keys())
@@ -163,10 +192,14 @@ class SharedContext:
         """Check if a function has already been defined."""
         return func_name in self.defined_functions
     
-    def get_context_summary(self) -> str:
+    def get_context_summary(self, include_code: bool = True, max_code_lines: int = 30) -> str:
         """
         Get a summary of the current context for LLM prompts.
         This helps agents know what's already been defined.
+        
+        Args:
+            include_code: If True, include actual code snippets (not just names)
+            max_code_lines: Maximum lines per code snippet to avoid token overflow
         """
         summary_parts = []
         
@@ -181,21 +214,45 @@ class SharedContext:
             ])
             summary_parts.append(f"## Planned Classes\n{classes_str}")
         
-        # Already defined classes
+        # Already defined classes - with actual code snippets
         if self.defined_classes:
-            defined_str = ", ".join(self.defined_classes.keys())
-            summary_parts.append(f"## Already Defined Classes\n{defined_str}\n(Do NOT redefine these)")
+            if include_code:
+                classes_code = []
+                for cls_name, code in self.defined_classes.items():
+                    # Extract just the class definition
+                    class_code = self._extract_class_definition(code, cls_name)
+                    if class_code:
+                        # Truncate if too long
+                        lines = class_code.split('\n')
+                        if len(lines) > max_code_lines:
+                            class_code = '\n'.join(lines[:max_code_lines]) + f"\n    # ... ({len(lines) - max_code_lines} more lines)"
+                        classes_code.append(f"### {cls_name}\n```python\n{class_code}\n```")
+                
+                if classes_code:
+                    summary_parts.append(f"## Already Defined Classes (DO NOT REDEFINE)\n" + "\n\n".join(classes_code))
+            else:
+                defined_str = ", ".join(self.defined_classes.keys())
+                summary_parts.append(f"## Already Defined Classes\n{defined_str}\n(Do NOT redefine these)")
         
-        # Already defined functions
+        # Already defined functions - with signatures
         if self.defined_functions:
-            funcs_str = ", ".join([f for f in self.defined_functions.keys() if f != 'main'])
-            if funcs_str:
-                summary_parts.append(f"## Already Defined Functions\n{funcs_str}")
+            funcs = [f for f in self.defined_functions.keys() if f != 'main']
+            if funcs and include_code:
+                func_sigs = []
+                for func_name in funcs:
+                    code = self.defined_functions[func_name]
+                    sig = self._extract_function_signature(code, func_name)
+                    if sig:
+                        func_sigs.append(f"- `{sig}`")
+                if func_sigs:
+                    summary_parts.append(f"## Already Defined Functions\n" + "\n".join(func_sigs))
+            elif funcs:
+                summary_parts.append(f"## Already Defined Functions\n{', '.join(funcs)}")
         
         # Required imports
         if self.imports:
             imports_str = "\n".join(sorted(self.imports))
-            summary_parts.append(f"## Available Imports\n{imports_str}")
+            summary_parts.append(f"## Available Imports\n```python\n{imports_str}\n```")
         
         if not summary_parts:
             return "No previous context. This is the first task."

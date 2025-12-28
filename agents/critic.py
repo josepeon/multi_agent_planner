@@ -1,17 +1,45 @@
 # agents/critic.py
+"""
+Critic Agent Module
 
-from core.llm_provider import get_llm_client
+Reviews code and provides constructive feedback for failed execution attempts.
+"""
+
+from typing import Optional
+
+from core.llm_provider import get_llm_client, BaseLLMClient
 from core.memory import Memory
 from core.task_schema import Task
 
 
 class CriticAgent:
-    def __init__(self, temperature=0.3, memory_path="memory/critic_memory.json"):
+    """Agent responsible for reviewing code and providing improvement suggestions."""
+    
+    temperature: float
+    client: BaseLLMClient
+    memory: Memory
+    
+    def __init__(
+        self,
+        temperature: float = 0.3,
+        memory_path: str = "memory/critic_memory.json"
+    ) -> None:
         self.temperature = temperature
         self.client = get_llm_client(temperature=temperature, max_tokens=1024)
         self.memory = Memory(memory_path)
 
-    def review(self, task_description: str, code: str, error_message: str):
+    def review(self, task_description: str, code: str, error_message: str) -> str:
+        """
+        Review code that failed execution and provide improvement suggestions.
+        
+        Args:
+            task_description: What the code was supposed to accomplish
+            code: The Python code that failed
+            error_message: Error or output from execution
+            
+        Returns:
+            Review feedback as string
+        """
         system_message = (
             "You are a senior code reviewer. Your job is to analyze Python code "
             "and provide constructive feedback. Your feedback should focus on possible causes "
@@ -26,12 +54,12 @@ class CriticAgent:
         )
 
         cache_key = f"{task_description}|{code}|{error_message}"
-        cached_review = self.memory.get(cache_key)
+        cached_review: Optional[str] = self.memory.get(cache_key)
         if cached_review:
             return cached_review
 
         try:
-            result = self.client.chat(
+            result: str = self.client.chat(
                 user_message=user_message,
                 system_message=system_message,
                 temperature=self.temperature

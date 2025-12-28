@@ -1,7 +1,6 @@
 # agents/architect.py
-
 """
-Architect Agent
+Architect Agent Module
 
 Creates a high-level design before coding begins:
 - File structure
@@ -12,15 +11,22 @@ Creates a high-level design before coding begins:
 This gives the Developer agent a blueprint to follow.
 """
 
-from core.llm_provider import get_llm_client
-from core.shared_context import get_shared_context, Architecture
-from typing import Dict, List
 import json
 import re
+from typing import Dict, List
+
+from core.llm_provider import get_llm_client, BaseLLMClient
+from core.shared_context import get_shared_context, Architecture, SharedContext
 
 
 class ArchitectAgent:
-    def __init__(self, temperature=0.2):
+    """Agent responsible for creating high-level software architecture designs."""
+    
+    temperature: float
+    client: BaseLLMClient
+    shared_context: SharedContext
+    
+    def __init__(self, temperature: float = 0.2) -> None:
         self.temperature = temperature
         self.client = get_llm_client(temperature=temperature)
         self.shared_context = get_shared_context()

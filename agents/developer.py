@@ -1,7 +1,15 @@
 # agents/developer.py
+"""
+Developer Agent Module
+
+Generates and revises Python code based on task descriptions using LLM.
+Includes sandboxed execution for validation.
+"""
 
 import re
-from core.llm_provider import get_llm_client
+from typing import Any, Dict, Optional
+
+from core.llm_provider import get_llm_client, BaseLLMClient
 from core.memory import Memory
 from core.task_schema import Task
 from core.sandbox import execute_code_safely
@@ -16,13 +24,38 @@ def clean_code_block(code: str) -> str:
 
 
 class DeveloperAgent:
-    def __init__(self, temperature=0.3, sandbox_method="restricted"):
+    """Agent responsible for writing and revising Python code."""
+    
+    temperature: float
+    sandbox_method: str
+    client: BaseLLMClient
+    memory: Memory
+    
+    def __init__(self, temperature: float = 0.3, sandbox_method: str = "restricted") -> None:
         self.temperature = temperature
         self.sandbox_method = sandbox_method  # 'restricted', 'docker', or 'subprocess'
         self.client = get_llm_client(temperature=temperature, max_tokens=2048)
         self.memory = Memory("memory/developer_memory.json")
 
-    def write_code(self, task_description, feedback_message=None, temperature=0.3, max_tokens=2048):
+    def write_code(
+        self,
+        task_description: str,
+        feedback_message: Optional[str] = None,
+        temperature: float = 0.3,
+        max_tokens: int = 2048
+    ) -> str:
+        """
+        Generate Python code for a given task description.
+        
+        Args:
+            task_description: What the code should accomplish
+            feedback_message: Optional error from previous attempt
+            temperature: LLM temperature setting
+            max_tokens: Maximum tokens for response
+            
+        Returns:
+            Generated Python code as string
+        """
         system_message = (
             "You are a senior Python developer. "
             "Your job is to write a clean, minimal Python function or code block "
@@ -70,7 +103,21 @@ class DeveloperAgent:
                     return code
             except Exception as e:
                 return f"LLM API error: {str(e)}"
+        
+        return ""  # Should not reach here
+    
     def revise_code(self, task: Task, previous_code: str, feedback_message: str) -> str:
+        """
+        Revise code based on feedback from critic or error messages.
+        
+        Args:
+            task: The original task
+            previous_code: Code that failed
+            feedback_message: What went wrong
+            
+        Returns:
+            Revised Python code
+        """
         system_message = "You are a senior Python developer. Revise the code to address the critique. Only return valid Python code — no explanations or markdown."
         revision_prompt = (
             f"The previous code failed with the following error or feedback:\n{feedback_message}\n\n"
@@ -96,7 +143,7 @@ class DeveloperAgent:
         except Exception as e:
             return f"LLM API error during revision: {str(e)}"
 
-    def _execute_code(self, code: str) -> dict:
+    def _execute_code(self, code: str) -> Dict[str, Any]:
         """Execute code safely using sandboxed execution."""
         # First validate syntax before attempting execution
         try:
@@ -130,7 +177,12 @@ class DeveloperAgent:
             "method": result.get("method_used"),
         }
 
-    def develop(self, task: Task, critic=None, feedback_message: str = None) -> dict:
+    def develop(
+        self,
+        task: Task,
+        critic: Optional[Any] = None,
+        feedback_message: Optional[str] = None
+    ) -> Dict[str, Any]:
         """
         Develop code for a task with optional critic feedback loop.
         
@@ -138,6 +190,9 @@ class DeveloperAgent:
             task: The task to develop code for
             critic: Optional critic agent for internal retry (deprecated, use orchestrator retry)
             feedback_message: Optional feedback from previous failed attempt
+            
+        Returns:
+            Dict with code, result, status, and sandbox_method keys
         
         Uses sandboxed execution for safety.
         """

@@ -1,7 +1,6 @@
 # agents/documenter.py
-
 """
-Documentation Agent
+Documentation Agent Module
 
 Generates comprehensive documentation for generated code:
 - Adds docstrings to functions/classes
@@ -9,12 +8,18 @@ Generates comprehensive documentation for generated code:
 - Adds type hints where missing
 """
 
-from core.llm_provider import get_llm_client
 from typing import Optional
+
+from core.llm_provider import get_llm_client, BaseLLMClient
 
 
 class DocumenterAgent:
-    def __init__(self, temperature=0.2):
+    """Agent responsible for generating documentation and docstrings."""
+    
+    temperature: float
+    client: BaseLLMClient
+    
+    def __init__(self, temperature: float = 0.2) -> None:
         self.temperature = temperature
         self.client = get_llm_client(temperature=temperature)
 

@@ -1,20 +1,26 @@
 # agents/test_generator.py
-
 """
-Test Generator Agent
+Test Generator Agent Module
 
 Generates pytest unit tests for generated code.
 Analyzes classes and functions to create comprehensive test coverage.
 """
 
-from core.llm_provider import get_llm_client
-from core.shared_context import get_shared_context
-from typing import Optional
 import re
+from typing import Optional
+
+from core.llm_provider import get_llm_client, BaseLLMClient
+from core.shared_context import get_shared_context, SharedContext
 
 
 class TestGeneratorAgent:
-    def __init__(self, temperature=0.2):
+    """Agent responsible for generating pytest unit tests."""
+    
+    temperature: float
+    client: BaseLLMClient
+    shared_context: SharedContext
+    
+    def __init__(self, temperature: float = 0.2) -> None:
         self.temperature = temperature
         self.client = get_llm_client(temperature=temperature)
         self.shared_context = get_shared_context()

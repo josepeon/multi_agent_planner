@@ -9,6 +9,8 @@ Supports parallel execution of independent tasks using ThreadPoolExecutor.
 
 import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Any, Dict, List, Optional
+
 from agents.planner import PlannerAgent
 from agents.developer import DeveloperAgent
 from agents.qa import QAAgent
@@ -19,26 +21,26 @@ from agents.test_generator import TestGeneratorAgent
 from agents.documenter import DocumenterAgent
 from core.memory import Memory
 from core.task_schema import Task
-from core.shared_context import get_shared_context, reset_shared_context
+from core.shared_context import get_shared_context, reset_shared_context, SharedContext
 
 # Initialize agents
-planner = PlannerAgent()
-architect = ArchitectAgent()
-developer = DeveloperAgent()
-qa_checker = QAAgent()
-critic = CriticAgent()
-integrator = IntegratorAgent()
-test_generator = TestGeneratorAgent()
-documenter = DocumenterAgent()
-memory = Memory(filepath="output/memory.json")
-shared_context = get_shared_context()
+planner: PlannerAgent = PlannerAgent()
+architect: ArchitectAgent = ArchitectAgent()
+developer: DeveloperAgent = DeveloperAgent()
+qa_checker: QAAgent = QAAgent()
+critic: CriticAgent = CriticAgent()
+integrator: IntegratorAgent = IntegratorAgent()
+test_generator: TestGeneratorAgent = TestGeneratorAgent()
+documenter: DocumenterAgent = DocumenterAgent()
+memory: Memory = Memory(filepath="output/memory.json")
+shared_context: SharedContext = get_shared_context()
 
 # Configuration
-MAX_RETRIES = 3  # Number of times to retry failed tasks with critic feedback
-MULTI_FILE_OUTPUT = True  # Whether to generate multi-file project structure
+MAX_RETRIES: int = 3  # Number of times to retry failed tasks with critic feedback
+MULTI_FILE_OUTPUT: bool = True  # Whether to generate multi-file project structure
 
 
-def develop_with_retry(task: Task, max_retries: int = MAX_RETRIES) -> dict:
+def develop_with_retry(task: Task, max_retries: int = MAX_RETRIES) -> Dict[str, Any]:
     """
     Develop code for a task with retry logic.
     If QA fails, get critic feedback and retry up to max_retries times.
@@ -103,7 +105,17 @@ def develop_with_retry(task: Task, max_retries: int = MAX_RETRIES) -> dict:
     }
 
 
-def run_pipeline(task: Task, save_path="output/session_log.json"):
+def run_pipeline(task: Task, save_path: str = "output/session_log.json") -> str:
+    """
+    Run the full multi-agent code generation pipeline.
+    
+    Args:
+        task: The Task object containing the user's request
+        save_path: Path to save the session log JSON
+        
+    Returns:
+        The final generated code as a string
+    """
     # Reset shared context for new session
     reset_shared_context()
     global shared_context

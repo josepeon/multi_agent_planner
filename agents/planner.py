@@ -1,6 +1,13 @@
 # agents/planner.py
+"""
+Planner Agent Module
+
+Breaks down user requests into logical development modules using LLM.
+"""
 
 import re
+from typing import List
+
 from core.llm_provider import get_llm_client
 from core.memory import Memory
 from core.task_schema import Task
@@ -9,11 +16,24 @@ memory = Memory("output/memory.json")
 
 
 class PlannerAgent:
-    def __init__(self, temperature=0.3):
+    """Agent responsible for decomposing user requests into development tasks."""
+    
+    temperature: float
+    
+    def __init__(self, temperature: float = 0.3) -> None:
         self.temperature = temperature
         self.client = get_llm_client(temperature=temperature)
 
-    def plan_task(self, user_prompt):
+    def plan_task(self, user_prompt: str) -> List[str]:
+        """
+        Break down a user prompt into 2-4 logical development modules.
+        
+        Args:
+            user_prompt: The user's high-level request
+            
+        Returns:
+            List of module descriptions (2-4 items)
+        """
         system_message = """You are a senior software architect planning a development task.
 
 Given a user's request, break it into 2-4 LOGICAL MODULES (not micro-tasks).
@@ -53,7 +73,7 @@ enough that a developer can implement it without guessing."""
         except Exception as e:
             return [f"LLM API error: {str(e)}"]
 
-        subtasks = [
+        subtasks: List[str] = [
             re.sub(r"^\s*\d+[\.\):\-]\s*", "", line).strip()
             for line in output.split("\n")
             if re.match(r"^\s*\d+[\.\):\-]", line)
@@ -65,7 +85,16 @@ enough that a developer can implement it without guessing."""
         
         return subtasks
 
-    def plan(self, user_prompt):
+    def plan(self, user_prompt: str) -> List[Task]:
+        """
+        Plan tasks for a user prompt, with caching support.
+        
+        Args:
+            user_prompt: The user's high-level request
+            
+        Returns:
+            List of Task objects representing the development plan
+        """
         cache_key = f"plan::{user_prompt}"
         cached = memory.get(cache_key)
         if cached:

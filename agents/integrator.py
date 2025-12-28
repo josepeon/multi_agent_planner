@@ -1,7 +1,6 @@
 # agents/integrator.py
-
 """
-Integrator Agent
+Integrator Agent Module
 
 Intelligently merges code from multiple tasks into a cohesive final program.
 Unlike the simple assembler, this agent:
@@ -12,21 +11,28 @@ Unlike the simple assembler, this agent:
 - Supports multi-file output for larger projects
 """
 
-from core.llm_provider import get_llm_client
-from core.shared_context import get_shared_context
-from typing import List, Dict, Tuple
 import ast
-import os
 import json
+import os
+from typing import Any, Dict, List, Optional, Tuple
+
+from core.llm_provider import get_llm_client, BaseLLMClient
+from core.shared_context import get_shared_context, SharedContext
 
 
 class IntegratorAgent:
-    def __init__(self, temperature=0.1):
+    """Agent responsible for merging code from multiple tasks into cohesive programs."""
+    
+    temperature: float
+    client: BaseLLMClient
+    shared_context: SharedContext
+    
+    def __init__(self, temperature: float = 0.1) -> None:
         self.temperature = temperature
         self.client = get_llm_client(temperature=temperature)
         self.shared_context = get_shared_context()
 
-    def integrate(self, session_log: Dict) -> str:
+    def integrate(self, session_log: Dict[str, Any]) -> str:
         """
         Integrate code from all tasks into a final cohesive program.
         

@@ -9,6 +9,7 @@ This package contains core functionality:
 - memory: Persistent JSON memory
 - task_schema: Task dataclass
 - assembler: Code assembly utilities
+- logger: Structured logging
 """
 
 __all__ = [
@@ -29,6 +30,9 @@ __all__ = [
     "Task",
     # Assembler
     "assemble_code_from_log",
+    # Logging
+    "get_logger",
+    "setup_logging",
 ]
 
 
@@ -55,4 +59,7 @@ def __getattr__(name):
     elif name == "assemble_code_from_log":
         from core.assembler import assemble_code_from_log
         return assemble_code_from_log
+    elif name in ("get_logger", "setup_logging"):
+        from core.logger import get_logger, setup_logging
+        return get_logger if name == "get_logger" else setup_logging
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

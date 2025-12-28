@@ -1,17 +1,15 @@
 # agents/qa.py
 
-import os
-import openai
-from openai import OpenAI
-from dotenv import load_dotenv
+import json
+from core.llm_provider import get_llm_client
 from core.memory import Memory
 from core.task_schema import Task
 
-load_dotenv()
 
 class QAAgent:
-    def __init__(self, model="gpt-4"):
-        self.model = model
+    def __init__(self, temperature=0.2):
+        self.temperature = temperature
+        self.client = get_llm_client(temperature=temperature, max_tokens=512)
         self.memory = Memory(filepath="output/qa_memory.json")
 
     def evaluate_code(self, code_result, temperature: float = 0.2, max_tokens: int = 512) -> dict:
@@ -23,30 +21,35 @@ class QAAgent:
             return cached
 
         try:
+            system_message = "You are a senior Python code reviewer. Always respond with valid JSON only."
             prompt = (
                 "You are a code reviewer. Your task is to simulate a QA evaluation of the following code. "
                 "First, check if the code would run successfully if executed (assume it is in a correct environment), "
                 "then provide a clear critique including any improvements, security risks, or bugs. "
                 "Respond with a JSON like: "
-                "{ \"success\": true/false, \"critique\": \"your comments here\" }\n\n"
+                '{ "success": true/false, "critique": "your comments here" }\n\n'
                 f"CODE:\n{code_string}"
             )
 
-            client = OpenAI()
-            response = client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": "You are a senior Python code reviewer."},
-                    {"role": "user", "content": prompt}
-                ],
+            response = self.client.chat(
+                user_message=prompt,
+                system_message=system_message,
                 temperature=temperature,
                 max_tokens=max_tokens
             )
-            import json
-            parsed = json.loads(response.choices[0].message.content)
+            
+            # Extract JSON from response (handle markdown code blocks)
+            response_text = response.strip()
+            if response_text.startswith("```"):
+                response_text = response_text.split("```")[1]
+                if response_text.startswith("json"):
+                    response_text = response_text[4:]
+            response_text = response_text.strip()
+            
+            parsed = json.loads(response_text)
 
             result = {
-                "status": "complete" if parsed.get("success", False) else "failed",
+                "status": "passed" if parsed.get("success", False) else "failed",
                 "critique": parsed.get("critique", "")
             }
 

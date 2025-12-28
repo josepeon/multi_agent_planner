@@ -1,45 +1,37 @@
 # agents/developer.py
 
-import os
-import openai
-from openai import OpenAIError
-from dotenv import load_dotenv
+import re
+from core.llm_provider import get_llm_client
 from core.memory import Memory
 from core.task_schema import Task
-import re
-load_dotenv()
+from core.sandbox import execute_code_safely
+
 
 def clean_code_block(code: str) -> str:
-    # Remove triple backtick Markdown formatting if present
+    """Remove triple backtick Markdown formatting if present."""
     if code.startswith("```"):
         code = re.sub(r"^```[a-zA-Z]*\n", "", code)  # Remove opening triple backticks with language
         code = re.sub(r"\n```$", "", code)           # Remove closing triple backticks
     return code.strip()
 
+
 class DeveloperAgent:
-    def __init__(self, model="gpt-4o"):
-        self.model = model
-        openai.api_key = os.getenv("OPENAI_API_KEY")
+    def __init__(self, temperature=0.3, sandbox_method="restricted"):
+        self.temperature = temperature
+        self.sandbox_method = sandbox_method  # 'restricted', 'docker', or 'subprocess'
+        self.client = get_llm_client(temperature=temperature, max_tokens=1024)
         self.memory = Memory("memory/developer_memory.json")
 
     def write_code(self, task_description, feedback_message=None, temperature=0.3, max_tokens=500):
-        system_message = {
-            "role": "system",
-            "content": (
-                "You are a senior Python developer. "
-                "Your job is to write a clean, minimal Python function or code block "
-                "that fulfills a single, clearly defined task. "
-                "Only return valid Python code — no explanations or markdown."
-            )
-        }
+        system_message = (
+            "You are a senior Python developer. "
+            "Your job is to write a clean, minimal Python function or code block "
+            "that fulfills a single, clearly defined task. "
+            "Only return valid Python code — no explanations or markdown."
+        )
         base_prompt = f"Task: {task_description}"
         if feedback_message:
             base_prompt += f"\nNote: Your previous attempt failed. Error was:\n{feedback_message}"
-
-        user_message = {
-            "role": "user",
-            "content": base_prompt
-        }
 
         cache_key = f"{task_description}|{feedback_message}"
         cached_code = self.memory.get(cache_key)
@@ -47,31 +39,26 @@ class DeveloperAgent:
             return cached_code
 
         try:
-            response = openai.chat.completions.create(
-                model=self.model,
-                messages=[system_message, user_message],
+            code = self.client.chat(
+                user_message=base_prompt,
+                system_message=system_message,
                 temperature=temperature,
                 max_tokens=max_tokens,
             )
-            code = response.choices[0].message.content.strip()
             code = clean_code_block(code)
             # Optionally remove markdown-like instructional content
             code = code.split("```")[0].split("To execute")[0].strip()
             self.memory.set(cache_key, code)
             return code
-        except OpenAIError as e:
-            return f"OpenAI API error: {str(e)}"
+        except Exception as e:
+            return f"LLM API error: {str(e)}"
     def revise_code(self, task: Task, previous_code: str, feedback_message: str) -> str:
+        system_message = "You are a senior Python developer. Revise the code to address the critique. Only return valid Python code — no explanations or markdown."
         revision_prompt = (
             f"The previous code failed with the following error or feedback:\n{feedback_message}\n\n"
             f"Please revise the following code to fix the issue:\n\n{previous_code}\n\n"
             f"Task: {task.description}"
         )
-
-        messages = [
-            {"role": "system", "content": "You are a senior Python developer. Revise the code to address the critique."},
-            {"role": "user", "content": revision_prompt}
-        ]
 
         cache_key = f"revise|{task.description}|{feedback_message}"
         cached_code = self.memory.get(cache_key)
@@ -79,50 +66,71 @@ class DeveloperAgent:
             return cached_code
 
         try:
-            response = openai.chat.completions.create(
-                model=self.model,
-                messages=messages,
+            revised_code = self.client.chat(
+                user_message=revision_prompt,
+                system_message=system_message,
                 temperature=0.3,
                 max_tokens=600,
             )
-            revised_code = response.choices[0].message.content.strip()
             revised_code = clean_code_block(revised_code)
             self.memory.set(cache_key, revised_code)
             return revised_code
-        except OpenAIError as e:
-            return f"OpenAI API error during revision: {str(e)}"
+        except Exception as e:
+            return f"LLM API error during revision: {str(e)}"
+
+    def _execute_code(self, code: str) -> dict:
+        """Execute code safely using sandboxed execution."""
+        result = execute_code_safely(
+            code,
+            method=self.sandbox_method,
+            timeout=30,
+        )
+        return {
+            "output": result["output"],
+            "passed": result["success"],
+            "error": result.get("error"),
+            "method": result.get("method_used"),
+        }
 
     def develop(self, task: Task, critic=None) -> dict:
+        """
+        Develop code for a task with optional critic feedback loop.
+        
+        Uses sandboxed execution for safety.
+        """
         task_code = self.write_code(task.description)
+        
+        # Save generated code for reference
         with open("generated_code.py", "w") as f:
             f.write(task_code)
 
-        import subprocess
-        try:
-            result = subprocess.run(["python", "generated_code.py"], capture_output=True, text=True)
-            output = result.stdout.strip()
-            passed = result.returncode == 0
-        except Exception as e:
-            output = str(e)
-            passed = False
+        # Execute in sandbox
+        exec_result = self._execute_code(task_code)
+        output = exec_result["output"]
+        passed = exec_result["passed"]
+        
+        if exec_result.get("error"):
+            output = f"{output}\nError: {exec_result['error']}"
 
         if not passed and critic:
             feedback = critic.review(task.description, task_code, output)
             revised_code = self.revise_code(task, task_code, feedback)
+            
             with open("generated_code.py", "w") as f:
                 f.write(revised_code)
-            try:
-                result = subprocess.run(["python", "generated_code.py"], capture_output=True, text=True)
-                return {
-                    "code": revised_code,
-                    "result": result.stdout.strip(),
-                    "status": "passed" if result.returncode == 0 else "failed"
-                }
-            except Exception as e:
-                return {
-                    "code": revised_code,
-                    "result": str(e),
-                    "status": "failed"
-                }
+            
+            # Execute revised code in sandbox
+            exec_result = self._execute_code(revised_code)
+            return {
+                "code": revised_code,
+                "result": exec_result["output"],
+                "status": "passed" if exec_result["passed"] else "failed",
+                "sandbox_method": exec_result.get("method"),
+            }
 
-        return {"code": task_code, "result": output, "status": "passed" if passed else "failed"}
+        return {
+            "code": task_code,
+            "result": output,
+            "status": "passed" if passed else "failed",
+            "sandbox_method": exec_result.get("method"),
+        }

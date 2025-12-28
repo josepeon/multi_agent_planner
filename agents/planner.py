@@ -1,47 +1,37 @@
 # agents/planner.py
 
-import os
 import re
-import openai
-from openai import OpenAIError
-from dotenv import load_dotenv
-load_dotenv()
-
+from core.llm_provider import get_llm_client
 from core.memory import Memory
 from core.task_schema import Task
+
 memory = Memory("output/memory.json")
 
+
 class PlannerAgent:
-    def __init__(self, model="gpt-4o", temperature=0.3):
-        self.model = model
+    def __init__(self, temperature=0.3):
         self.temperature = temperature
-        openai.api_key = os.getenv("OPENAI_API_KEY")
+        self.client = get_llm_client(temperature=temperature)
 
     def plan_task(self, user_prompt):
-        system_message = {
-            "role": "system",
-            "content": (
-                "You are a planning assistant. Given a user's request, "
-                "break the task down into a numbered list of clear, atomic subtasks. "
-                "Keep the list focused and executable by a developer agent. "
-                "Avoid vague or generic headings like 'Setup', 'Testing', or 'Optimization' — instead, describe what specifically needs to be done in each step."
-            )
-        }
+        system_message = (
+            "You are a planning assistant. Given a user's request, "
+            "break the task down into a numbered list of clear, atomic subtasks. "
+            "Keep the list focused and executable by a developer agent. "
+            "Avoid vague or generic headings like 'Setup', 'Testing', or 'Optimization' — "
+            "instead, describe what specifically needs to be done in each step."
+        )
 
-        user_message = {
-            "role": "user",
-            "content": f"User request: {user_prompt}"
-        }
+        user_message = f"User request: {user_prompt}"
 
         try:
-            response = openai.chat.completions.create(
-                model=self.model,
-                messages=[system_message, user_message],
+            output = self.client.chat(
+                user_message=user_message,
+                system_message=system_message,
                 temperature=self.temperature
             )
-            output = response.choices[0].message.content
-        except OpenAIError as e:
-            return [f"OpenAI API error: {str(e)}"]
+        except Exception as e:
+            return [f"LLM API error: {str(e)}"]
 
         subtasks = [
             re.sub(r"^\s*\d+[\.\):\-]\s*", "", line).strip()

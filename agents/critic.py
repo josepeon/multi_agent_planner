@@ -1,39 +1,29 @@
 # agents/critic.py
 
-import os
-import openai
-from openai import OpenAIError
-from dotenv import load_dotenv
+from core.llm_provider import get_llm_client
 from core.memory import Memory
 from core.task_schema import Task
-load_dotenv()
+
 
 class CriticAgent:
-    def __init__(self, model="gpt-4o", temperature=0.3, memory_path="memory/critic_memory.json"):
-        self.model = model
+    def __init__(self, temperature=0.3, memory_path="memory/critic_memory.json"):
         self.temperature = temperature
+        self.client = get_llm_client(temperature=temperature, max_tokens=1024)
         self.memory = Memory(memory_path)
-        openai.api_key = os.getenv("OPENAI_API_KEY")
 
     def review(self, task_description: str, code: str, error_message: str):
-        system_message = {
-            "role": "system",
-            "content": (
-                "You are a senior code reviewer. Your job is to analyze Python code "
-                "and provide constructive feedback. Your feedback should focus on possible causes "
-                "of errors, bad practices, or missing edge cases, especially in light of a reported failure."
-            )
-        }
+        system_message = (
+            "You are a senior code reviewer. Your job is to analyze Python code "
+            "and provide constructive feedback. Your feedback should focus on possible causes "
+            "of errors, bad practices, or missing edge cases, especially in light of a reported failure."
+        )
 
-        user_message = {
-            "role": "user",
-            "content": (
-                f"Task: {task_description}\n\n"
-                f"Code:\n{code}\n\n"
-                f"Error:\n{error_message}\n\n"
-                "What could be improved?"
-            )
-        }
+        user_message = (
+            f"Task: {task_description}\n\n"
+            f"Code:\n{code}\n\n"
+            f"Error:\n{error_message}\n\n"
+            "What could be improved?"
+        )
 
         cache_key = f"{task_description}|{code}|{error_message}"
         cached_review = self.memory.get(cache_key)
@@ -41,16 +31,12 @@ class CriticAgent:
             return cached_review
 
         try:
-            response = openai.chat.completions.create(
-                model=self.model,
-                messages=[system_message, user_message],
+            result = self.client.chat(
+                user_message=user_message,
+                system_message=system_message,
                 temperature=self.temperature
             )
-            if response.choices and len(response.choices) > 0:
-                result = response.choices[0].message.content.strip()
-                self.memory.set(cache_key, result)
-                return result
-            else:
-                return "No response received from the model."
-        except OpenAIError as e:
-            return f"OpenAI API error: {str(e)}"
+            self.memory.set(cache_key, result)
+            return result
+        except Exception as e:
+            return f"LLM API error: {str(e)}"

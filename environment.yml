@@ -1,6 +1,13 @@
 name: multi_agent_planner
 channels:
   - defaults
+  - conda-forge
 dependencies:
   - python=3.11
-prefix: /opt/miniconda3/envs/multi_agent_planner
+  - pip
+  - pip:
+    - python-dotenv>=1.0.0
+    - pydantic>=2.0.0
+    - requests>=2.28.0
+    - tqdm>=4.65.0
+    - groq>=1.0.0

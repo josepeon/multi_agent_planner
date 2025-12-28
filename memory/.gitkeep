@@ -1,0 +1,2 @@
+# This file ensures the memory directory is tracked by git
+# Memory/cache files in this directory are ignored

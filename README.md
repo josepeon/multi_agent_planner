@@ -1,63 +1,165 @@
-# Multi-Agent Planner
+<div align="center">
 
-**LLM-powered system that solves coding tasks through agent collaboration.**
+# 🤖 Multi-Agent Planner
 
-This project implements a multi-agent architecture using LLM-based agents, where each role has a specific function. A **Planner Agent** breaks down tasks, an **Architect Agent** creates high-level designs, a **Developer Agent** writes code, a **QA Agent** validates execution, a **Critic Agent** suggests improvements, and an **Integrator Agent** merges code into a cohesive program.
+[![Python 3.11](https://img.shields.io/badge/Python-3.11-blue.svg)](https://www.python.org/downloads/)
+[![Groq](https://img.shields.io/badge/Groq-Llama%203.3%2070B-orange.svg)](https://console.groq.com/)
+[![Flask](https://img.shields.io/badge/Flask-Web%20UI-green.svg)](http://localhost:8080)
+[![MIT License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-## ✨ Key Features
+**AI-powered multi-agent system that turns natural language into working Python code**
 
-- 🆓 **Free by Default** - Uses Groq's free Llama 3.3 70B API
-- 🏗️ **Architecture-First** - Architect agent creates design before coding
-- 🔄 **Smart Retry** - Failed tasks retry up to 3x with critic feedback
-- 🧠 **Shared Context** - Agents share knowledge of defined classes/functions
-- 🔒 **Sandboxed Execution** - Safe code execution with multiple isolation methods
-- 🔌 **Multi-Provider** - Switch between Groq, Gemini, Ollama, OpenAI, OpenRouter
-- 💾 **Persistent Memory** - Caches results to avoid redundant API calls
-- 🧩 **Modular Design** - Easy to extend with new agents
+[Quick Start](#-quick-start) • [Features](#-features) • [Web UI](#-web-interface) • [Architecture](#-architecture) • [API](#-api-usage)
+
+</div>
 
 ---
 
-## 🚀 Supported LLM Providers
+## 🎯 Overview
 
-| Provider | Cost | Models | Setup |
-|----------|------|--------|-------|
-| **Groq** | ✅ FREE | Llama 3.3 70B, Mixtral | [Get API Key](https://console.groq.com/) |
-| **Google Gemini** | ✅ FREE tier | Gemini 2.0 Flash, 1.5 Pro | [Get API Key](https://aistudio.google.com/apikey) |
-| **Ollama** | ✅ FREE (local) | Llama 3.2, CodeLlama, Mistral | [Install Ollama](https://ollama.ai/) |
-| **OpenAI** | 💰 Paid | GPT-4o, GPT-4 | [Get API Key](https://platform.openai.com/api-keys) |
-| **OpenRouter** | 💰 Pay-per-use | All models | [Get API Key](https://openrouter.ai/) |
+Multi-Agent Planner is an intelligent code generation system that orchestrates **8 specialized AI agents** to transform your ideas into production-ready Python code. Simply describe what you want to build, and the system will:
 
----
+1. **Plan** the project structure
+2. **Design** the architecture
+3. **Generate** the code
+4. **Test** for correctness
+5. **Review** and improve
+6. **Document** everything
 
-## 🔒 Security Features
-
-### Sandboxed Code Execution
-
-Generated code runs in isolated environments to prevent malicious operations:
-
-| Method | Security | Requirements | Use Case |
-|--------|----------|--------------|----------|
-| `restricted` | ⭐⭐⭐ | None | Default, blocks dangerous operations |
-| `docker` | ⭐⭐⭐⭐⭐ | Docker installed | Production, full isolation |
-| `subprocess` | ⭐⭐ | None | Basic timeout protection |
-
-**Blocked operations:** `os.system`, `subprocess`, `eval`, `exec`, `__import__`, file I/O, network access
+> 💡 **Free to use** - Powered by Groq's free Llama 3.3 70B API with automatic fallback
 
 ---
 
-## Example Workflow
+## ✨ Features
 
-**Example user prompt:**  
-*"Create a command-line tool that parses a CSV file and returns JSON-formatted summary statistics."*
+| Feature | Description |
+|---------|-------------|
+| 🆓 **Free by Default** | Uses Groq's free Llama 3.3 70B API with auto-fallback to backup models |
+| 🏗️ **Architecture-First** | Architect agent creates high-level design before any code is written |
+| 🔄 **Smart Retry** | Failed tasks retry up to 3x with critic feedback for self-healing |
+| 🧠 **Shared Context** | Agents share knowledge of defined classes/functions via AST analysis |
+| 🔒 **Sandboxed Execution** | Safe code execution with restricted, subprocess, or Docker isolation |
+| 🔌 **Multi-Provider** | Switch between Groq, Gemini, Ollama, OpenAI, or OpenRouter |
+| 📁 **Multi-File Output** | Generate organized project structures (models.py, services.py, main.py) |
+| 🧪 **Auto-Generated Tests** | TestGenerator creates comprehensive pytest test suites |
+| 📝 **Auto Documentation** | Documenter agent creates README and adds docstrings |
+| ⚡ **Parallel Execution** | Tests and documentation generated concurrently |
+| 🌐 **Web Interface** | Flask-based UI for easy interaction |
+| 💾 **Persistent Memory** | Caches results to avoid redundant API calls |
 
-System output:
-1. **Planner** → Breaks task into 2-4 logical modules
-2. **Architect** → Creates high-level design (classes, interfaces, dependencies)
-3. **Developer** → Writes Python code for each module
-4. **QA Agent** → Validates execution in sandbox
-5. **Critic** → Reviews failed code, provides feedback
-6. **Developer** → Retries with critic feedback (up to 3 attempts)
-7. **Integrator** → Intelligently merges all code into final program
+---
+
+## 🤖 Agent Pipeline
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              USER PROMPT                                     │
+│            "Create a todo list manager with priorities"                      │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  📋 PLANNER          Breaks prompt into 2-4 logical modules                  │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  🏗️ ARCHITECT        Creates high-level design (classes, interfaces)        │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  💻 DEVELOPER        Writes Python code for each module                      │
+│                      ↺ Retries with CRITIC feedback (up to 3x)              │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  ✅ QA AGENT         Validates execution in sandbox                          │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  🔗 INTEGRATOR       Merges all code into cohesive program                   │
+│                      Creates multi-file structure with import validation     │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                    ┌───────────────┴───────────────┐
+                    │         PARALLEL              │
+                    ▼                               ▼
+┌───────────────────────────────┐   ┌───────────────────────────────┐
+│  🧪 TEST GENERATOR            │   │  📝 DOCUMENTER                 │
+│  Creates pytest test suite    │   │  Creates README + docstrings  │
+└───────────────────────────────┘   └───────────────────────────────┘
+                    │                               │
+                    └───────────────┬───────────────┘
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           📦 OUTPUT                                          │
+│   output/final_program.py  |  output/test_program.py  |  output/README.md   │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 🚀 Quick Start
+
+### 1. Clone and Setup
+
+```bash
+git clone https://github.com/josepeon/multi_agent_planner.git
+cd multi_agent_planner
+
+# Using conda (recommended)
+conda env create -f environment.yml
+conda activate multi_agent_planner
+pip install -r requirements.txt
+```
+
+### 2. Configure LLM Provider
+
+```bash
+cp .env.example .env
+```
+
+**Groq (FREE - Recommended):**
+```env
+LLM_PROVIDER=groq
+GROQ_API_KEY=gsk_your-key-here
+```
+
+Get your free API key at [console.groq.com](https://console.groq.com/)
+
+### 3. Run
+
+**CLI Mode:**
+```bash
+python main.py
+```
+
+**Web UI:**
+```bash
+python web/app.py
+# Open http://localhost:8080
+```
+
+---
+
+## 🌐 Web Interface
+
+<div align="center">
+
+| Input | Output |
+|-------|--------|
+| Simple form for project descriptions | Tabbed view: Code, Tests, README |
+| Example prompts for quick testing | Download project as ZIP |
+
+</div>
+
+```bash
+python web/app.py
+# Open http://localhost:8080
+```
 
 ---
 
@@ -65,176 +167,87 @@ System output:
 
 ```
 multi_agent_planner/
-├── agents/
-│   ├── planner.py       # Task decomposition (2-4 logical modules)
-│   ├── architect.py     # High-level design
-│   ├── developer.py     # Code generation + sandboxed execution
-│   ├── qa.py            # Code validation
-│   ├── critic.py        # Code review & feedback
-│   ├── integrator.py    # Intelligent code merging
-│   ├── test_generator.py # Pytest test generation (NEW)
-│   ├── documenter.py    # README & docstring generation (NEW)
-│   └── base_agent.py    # Abstract base class
-├── core/
-│   ├── orchestrator.py  # Pipeline with parallel execution
-│   ├── shared_context.py # Shared memory with code snippets
-│   ├── llm_provider.py  # Multi-provider LLM abstraction
-│   ├── sandbox.py       # Sandboxed code execution
-│   ├── retry.py         # Exponential backoff retry logic
-│   ├── memory.py        # Persistent JSON memory
-│   ├── task_schema.py   # Task dataclass
-│   └── assembler.py     # Legacy code assembly (deprecated)
-├── web/                 # Web Interface (NEW)
-│   ├── app.py           # Flask web server
-│   └── templates/
-│       └── index.html   # Web UI
-├── output/              # Generated outputs
-│   ├── final_program.py # Single-file output
-│   ├── test_program.py  # Generated tests
-│   ├── README.md        # Generated documentation
-│   └── project/         # Multi-file output (if enabled)
-├── memory/              # Agent memory caches
-├── tests/               # Unit tests
-├── main.py              # CLI entry point
+├── agents/                    # AI Agents
+│   ├── planner.py             # Task decomposition
+│   ├── architect.py           # High-level design
+│   ├── developer.py           # Code generation
+│   ├── qa.py                  # Code validation
+│   ├── critic.py              # Code review & feedback
+│   ├── integrator.py          # Code merging + import validation
+│   ├── test_generator.py      # Pytest generation
+│   ├── documenter.py          # README generation
+│   └── base_agent.py          # Abstract base class
+├── core/                      # Core System
+│   ├── orchestrator.py        # Pipeline with parallel execution
+│   ├── shared_context.py      # AST-based shared memory
+│   ├── llm_provider.py        # Multi-provider LLM (auto-fallback)
+│   ├── sandbox.py             # Sandboxed execution
+│   ├── retry.py               # Exponential backoff
+│   └── memory.py              # Persistent JSON cache
+├── web/                       # Web Interface
+│   ├── app.py                 # Flask server (port 8080)
+│   └── templates/index.html   # Web UI
+├── output/                    # Generated Output
+│   ├── final_program.py       # Main code
+│   ├── test_program.py        # Pytest tests
+│   ├── README.md              # Documentation
+│   └── project/               # Multi-file output
+├── main.py                    # CLI entry point
 ├── requirements.txt
-├── environment.yml      # Conda environment
-├── .env.example         # Environment template
-├── IMPROVEMENTS.md      # Progress tracker
-└── README.md
-```
-
-## 🤖 Implemented Agents
-
-| Agent | Role |
-|-------|------|
-| `PlannerAgent` | Breaks user prompts into 2-4 logical modules (not micro-tasks) |
-| `ArchitectAgent` | Creates high-level design with classes, interfaces, dependencies |
-| `DeveloperAgent` | Writes Python code with sandboxed execution |
-| `QAAgent` | Verifies code execution and correctness |
-| `CriticAgent` | Reviews failed code and provides actionable feedback |
-| `IntegratorAgent` | LLM-powered intelligent code merging with AST fallback |
-| `TestGeneratorAgent` | Generates comprehensive pytest test suites |
-| `DocumenterAgent` | Creates README.md and adds docstrings |
-
----
-
-## 🌐 Web Interface
-
-The system includes a web-based UI for easier interaction:
-
-```bash
-# Install Flask if not already installed
-pip install flask
-
-# Run the web server
-cd multi_agent_planner
-python web/app.py
-```
-
-Then open http://localhost:5000 in your browser.
-
-**Features:**
-- Simple input form for project descriptions
-- Real-time generation status
-- Tabbed output view (Code, Tests, README)
-- Download project as ZIP
-- Example prompts for quick testing
-
----
-
-## 📦 Output Options
-
-### Single File (default)
-```python
-# output/final_program.py - All code in one file
-```
-
-### Multi-File Project
-Enable multi-file output in `core/orchestrator.py`:
-```python
-MULTI_FILE_OUTPUT = True  # Creates output/project/ with models.py, services.py, main.py
+└── environment.yml
 ```
 
 ---
 
-## 🚀 Quick Start
+## 🏗️ Architecture
 
-### 1. Clone and setup environment
+### Agent Roles
 
-```bash
-git clone https://github.com/josepeon/multi_agent_planner.git
-cd multi_agent_planner
+| Agent | Responsibility |
+|-------|----------------|
+| **PlannerAgent** | Breaks prompts into 2-4 logical modules |
+| **ArchitectAgent** | Creates high-level design with classes and interfaces |
+| **DeveloperAgent** | Writes Python code with sandboxed execution |
+| **QAAgent** | Validates code execution and correctness |
+| **CriticAgent** | Reviews failed code, provides actionable feedback |
+| **IntegratorAgent** | LLM-powered code merging with AST import validation |
+| **TestGeneratorAgent** | Generates comprehensive pytest test suites |
+| **DocumenterAgent** | Creates README.md and adds docstrings |
 
-# Option A: Using conda (recommended)
-conda env create -f environment.yml
-conda activate multi_agent_planner
-pip install -r requirements.txt
+### LLM Providers
 
-# Option B: Using pip
-pip install -r requirements.txt
-```
+| Provider | Cost | Models | Auto-Fallback |
+|----------|------|--------|---------------|
+| **Groq** | ✅ FREE | llama-3.3-70b-versatile | → llama-3.1-8b-instant → gemma2-9b-it |
+| **Gemini** | ✅ FREE tier | gemini-2.0-flash | - |
+| **Ollama** | ✅ FREE (local) | llama3.2, codellama | - |
+| **OpenAI** | 💰 Paid | gpt-4o, gpt-4 | - |
+| **OpenRouter** | 💰 Pay-per-use | All models | - |
 
-### 2. Configure your LLM provider
+### Security
 
-Copy `.env.example` to `.env` and add your API key:
+| Sandbox Method | Security Level | Requirements |
+|----------------|----------------|--------------|
+| `restricted` | ⭐⭐⭐ | None (default) |
+| `docker` | ⭐⭐⭐⭐⭐ | Docker installed |
+| `subprocess` | ⭐⭐ | None |
 
-```bash
-cp .env.example .env
-```
-
-**Option A: Use Groq (FREE & Fast - Recommended)**
-```env
-LLM_PROVIDER=groq
-GROQ_API_KEY=gsk_your-key-here
-```
-
-**Option B: Use Google Gemini (FREE tier)**
-```env
-LLM_PROVIDER=gemini
-GEMINI_API_KEY=your-key-here
-```
-
-**Option C: Use Ollama (FREE, runs locally)**
-```bash
-# First install Ollama and pull a model
-ollama pull llama3.2
-```
-```env
-LLM_PROVIDER=ollama
-```
-
-**Option D: Use OpenAI (Paid)**
-```env
-LLM_PROVIDER=openai
-OPENAI_API_KEY=sk-your-key-here
-```
-
-### 3. Run the planner
-```bash
-python main.py
-```
-
-### 4. Follow the interactive prompt to generate your desired program!
+**Blocked operations:** `os.system`, `subprocess`, `eval`, `exec`, `__import__`, file I/O, network access
 
 ---
 
 ## 📖 API Usage
 
-### LLM Provider
+### LLM Client
 
 ```python
 from core.llm_provider import get_llm_client
 
-# Use default provider from .env (Groq)
-client = get_llm_client()
-response = client.chat("Write a hello world in Python")
+client = get_llm_client()  # Uses default from .env
+response = client.chat("Write a hello world")
 
-# Specify provider and model
+# Specify provider
 client = get_llm_client(provider="groq", model="llama-3.3-70b-versatile")
-response = client.chat(
-    "Write a function to parse CSV",
-    system_message="You are a senior Python developer"
-)
 ```
 
 ### Sandboxed Execution
@@ -242,56 +255,70 @@ response = client.chat(
 ```python
 from core.sandbox import execute_code_safely
 
-# Execute code safely
-result = execute_code_safely('print("Hello World")')
-print(result["output"])  # "Hello World"
-print(result["success"]) # True
+result = execute_code_safely('print("Hello")')
+# {"success": True, "output": "Hello"}
 
-# Dangerous code is blocked
 result = execute_code_safely('import os; os.system("rm -rf /")')
-print(result["success"]) # False
-print(result["error"])   # "Security violation: 'os.system' is not allowed"
-
-# Use Docker for maximum isolation
-result = execute_code_safely(code, method="docker")
+# {"success": False, "error": "Security violation: 'os.system' is not allowed"}
 ```
 
-### Retry Logic
+### Full Pipeline
 
 ```python
-from core.retry import retry_with_backoff, retry_llm_call
+from core.orchestrator import Orchestrator
 
-# Decorator pattern
-@retry_with_backoff(max_retries=3, base_delay=1.0)
-def call_api():
-    return requests.get("https://api.example.com")
-
-# Direct usage for LLM calls
-result = retry_llm_call(lambda: client.chat("Hello"), max_retries=3)
+orchestrator = Orchestrator()
+result = orchestrator.run("Create a calculator with basic operations")
+# Generates code, tests, and documentation
 ```
 
 ---
 
-## 🧪 Testing
+## 📦 Output Options
 
-```bash
-# Run a simple test
-python -c "from core.llm_provider import get_llm_client; print(get_llm_client().chat('Say hello'))"
+### Single File (default)
+```
+output/
+├── final_program.py    # All code
+├── test_program.py     # Pytest tests
+└── README.md           # Documentation
+```
 
-# Test sandbox
-python -c "from core.sandbox import execute_code_safely; print(execute_code_safely('print(1+1)'))"
+### Multi-File Project
+Enable in `core/orchestrator.py`:
+```python
+MULTI_FILE_OUTPUT = True
+```
+```
+output/project/
+├── models.py           # Data models and enums
+├── services.py         # Business logic
+├── main.py             # Entry point
+├── test_program.py     # Tests
+└── README.md           # Documentation
 ```
 
 ---
 
-## 🗺️ Roadmap
+## 🛠️ Tech Stack
 
-- [ ] Web UI (Streamlit/Gradio)
-- [ ] Async pipeline for parallel task execution
-- [ ] RAG integration for documentation context
-- [ ] Multi-file project generation
-- [ ] Git integration for auto-commits
-- [ ] Streaming output support
+| Component | Technology |
+|-----------|------------|
+| **Language** | Python 3.11 |
+| **LLM** | Groq (Llama 3.3 70B), Gemini, Ollama, OpenAI |
+| **Web Framework** | Flask |
+| **Code Analysis** | AST (Abstract Syntax Tree) |
+| **Testing** | pytest |
+| **Concurrency** | ThreadPoolExecutor |
+| **Environment** | Conda + pip |
+
+---
+
+## 📋 Requirements
+
+- Python 3.11+
+- Groq API key (free) or other LLM provider
+- Docker (optional, for maximum sandbox security)
 
 ---
 
@@ -304,3 +331,13 @@ MIT License - feel free to use this project for any purpose.
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
+
+---
+
+<div align="center">
+
+**Built with ❤️ using AI agents**
+
+[⬆ Back to top](#-multi-agent-planner)
+
+</div>

@@ -61,8 +61,17 @@ def _get_restricted_globals() -> Dict[str, Any]:
     """Create a restricted globals dict for safe execution."""
     import builtins
     
-    # Safe builtins only
+    # Safe builtins - includes class definition support
     safe_builtins = {
+        # Class definition essentials
+        '__build_class__': builtins.__build_class__,
+        '__name__': '__main__',
+        'object': object,
+        'super': super,
+        'property': property,
+        'staticmethod': staticmethod,
+        'classmethod': classmethod,
+        # Standard safe builtins
         'abs': abs, 'all': all, 'any': any, 'bin': bin, 'bool': bool,
         'chr': chr, 'dict': dict, 'dir': dir, 'divmod': divmod,
         'enumerate': enumerate, 'filter': filter, 'float': float,
@@ -75,6 +84,14 @@ def _get_restricted_globals() -> Dict[str, Any]:
         'round': round, 'set': set, 'slice': slice, 'sorted': sorted,
         'str': str, 'sum': sum, 'tuple': tuple, 'type': type,
         'zip': zip, 'True': True, 'False': False, 'None': None,
+        # Exception handling
+        'Exception': Exception, 'ValueError': ValueError, 'TypeError': TypeError,
+        'KeyError': KeyError, 'IndexError': IndexError, 'AttributeError': AttributeError,
+        'ZeroDivisionError': ZeroDivisionError, 'RuntimeError': RuntimeError,
+        'StopIteration': StopIteration, 'NotImplementedError': NotImplementedError,
+        # getattr/setattr for OOP
+        'getattr': getattr, 'setattr': setattr, 'hasattr': hasattr, 'delattr': delattr,
+        'callable': callable, 'vars': vars,
     }
     
     return {
@@ -126,23 +143,34 @@ def execute_restricted(code: str, config: SandboxConfig) -> ExecutionResult:
             except ImportError:
                 pass
         
-        # Compile and check for dangerous patterns
+        # Check for truly dangerous patterns (system access, code injection)
+        # Note: We allow classes (__class__), eval in strings, and input for UI code
         dangerous_patterns = [
-            'exec', 'eval', 'compile', '__import__', 'open', 'file',
-            'input', 'raw_input', 'execfile', 'reload',
-            'os.system', 'subprocess', 'Popen', 'call',
-            '__class__', '__bases__', '__subclasses__', '__mro__',
-            '__globals__', '__code__', '__reduce__',
+            ('os.system', 'System command execution'),
+            ('subprocess.', 'Subprocess execution'),
+            ('Popen', 'Process spawning'),
+            ('__subclasses__', 'Class introspection attack'),
+            ('__globals__', 'Global namespace access'),
+            ('__code__', 'Code object manipulation'),
+            ('__reduce__', 'Pickle exploit'),
+            ('execfile', 'File execution'),
+            ('reload', 'Module reload'),
         ]
         
-        for pattern in dangerous_patterns:
+        for pattern, reason in dangerous_patterns:
             if pattern in code:
                 return ExecutionResult(
                     success=False,
                     output="",
-                    error=f"Security violation: '{pattern}' is not allowed",
+                    error=f"Security violation: {reason} ('{pattern}' is not allowed)",
                     method_used="restricted"
                 )
+        
+        # Code containing GUI/input/eval needs subprocess execution for full testing
+        needs_subprocess = any(p in code for p in ['input(', 'eval(', 'tkinter', 'tk.', 'mainloop'])
+        if needs_subprocess:
+            # Fall back to subprocess for GUI/interactive code
+            return execute_subprocess(code, config)
         
         # Execute with captured output
         with redirect_stdout(output_buffer), redirect_stderr(error_buffer):

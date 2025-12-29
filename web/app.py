@@ -13,17 +13,17 @@ Features:
 - ZIP download of generated projects
 """
 
+import io
 import os
 import sys
-import json
 import time
+import zipfile
+from collections import defaultdict
 from datetime import datetime
 from functools import wraps
-from collections import defaultdict
-from flask import Flask, render_template, request, jsonify, send_file
-from threading import Thread, Lock
-import zipfile
-import io
+from threading import Lock, Thread
+
+from flask import Flask, jsonify, render_template, request, send_file
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -44,13 +44,13 @@ class RateLimiter:
     
     For production, use Redis-based limiter (Flask-Limiter).
     """
-    
+
     def __init__(self, max_requests: int = 10, window_seconds: int = 60):
         self.max_requests = max_requests
         self.window_seconds = window_seconds
         self.requests = defaultdict(list)
         self.lock = Lock()
-    
+
     def is_allowed(self, key: str) -> tuple[bool, int]:
         """
         Check if a request is allowed.
@@ -59,18 +59,18 @@ class RateLimiter:
             (allowed: bool, remaining: int)
         """
         now = time.time()
-        
+
         with self.lock:
             # Clean old requests
             self.requests[key] = [
-                t for t in self.requests[key] 
+                t for t in self.requests[key]
                 if now - t < self.window_seconds
             ]
-            
+
             # Check limit
             if len(self.requests[key]) >= self.max_requests:
                 return False, 0
-            
+
             # Record this request
             self.requests[key].append(now)
             remaining = self.max_requests - len(self.requests[key])
@@ -92,27 +92,27 @@ def rate_limit(f):
         client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
         if client_ip:
             client_ip = client_ip.split(',')[0].strip()
-        
+
         allowed, remaining = limiter.is_allowed(client_ip)
-        
+
         if not allowed:
             response = jsonify({
                 'error': 'Rate limit exceeded',
-                'message': f'Too many requests. Please wait before trying again.',
+                'message': 'Too many requests. Please wait before trying again.',
                 'retry_after': limiter.window_seconds
             })
             response.status_code = 429
             response.headers['Retry-After'] = str(limiter.window_seconds)
             response.headers['X-RateLimit-Remaining'] = '0'
             return response
-        
+
         # Add rate limit headers to response
         response = f(*args, **kwargs)
         if hasattr(response, 'headers'):
             response.headers['X-RateLimit-Remaining'] = str(remaining)
             response.headers['X-RateLimit-Limit'] = str(limiter.max_requests)
         return response
-    
+
     return decorated_function
 
 
@@ -181,13 +181,13 @@ def generate():
     """
     data = request.json
     description = data.get('description', '').strip()
-    
+
     if not description:
         return jsonify({'error': 'Description is required'}), 400
-    
+
     # Create a job ID
     job_id = datetime.now().strftime('%Y%m%d_%H%M%S')
-    
+
     # Store job status
     jobs[job_id] = {
         'status': 'running',
@@ -196,13 +196,13 @@ def generate():
         'result': None,
         'error': None
     }
-    
+
     # Run generation in background thread
     def run_generation():
         try:
             task = Task(id=0, description=description)
             result = run_pipeline(task, save_path=f"output/session_{job_id}.json")
-            
+
             jobs[job_id]['status'] = 'completed'
             jobs[job_id]['result'] = {
                 'final_code': result,
@@ -212,10 +212,10 @@ def generate():
         except Exception as e:
             jobs[job_id]['status'] = 'failed'
             jobs[job_id]['error'] = str(e)
-    
+
     thread = Thread(target=run_generation)
     thread.start()
-    
+
     return jsonify({'job_id': job_id, 'status': 'running'})
 
 
@@ -224,7 +224,7 @@ def job_status(job_id):
     """Check the status of a running job."""
     if job_id not in jobs:
         return jsonify({'error': 'Job not found'}), 404
-    
+
     job = jobs[job_id]
     response = {
         'job_id': job_id,
@@ -232,12 +232,12 @@ def job_status(job_id):
         'description': job['description'],
         'started_at': job['started_at']
     }
-    
+
     if job['status'] == 'completed':
         response['result'] = job['result']
     elif job['status'] == 'failed':
         response['error'] = job['error']
-    
+
     return jsonify(response)
 
 
@@ -246,37 +246,37 @@ def download_project(job_id):
     """Download the generated project as a ZIP file."""
     if job_id not in jobs:
         return jsonify({'error': 'Job not found'}), 404
-    
+
     job = jobs[job_id]
     if job['status'] != 'completed':
         return jsonify({'error': 'Job not completed'}), 400
-    
+
     # Create ZIP file in memory
     memory_file = io.BytesIO()
     with zipfile.ZipFile(memory_file, 'w', zipfile.ZIP_DEFLATED) as zf:
         # Add main program
         if job['result'].get('final_code'):
             zf.writestr('main.py', job['result']['final_code'])
-        
+
         # Add test file
         if job['result'].get('test_file'):
             zf.writestr('test_main.py', job['result']['test_file'])
-        
+
         # Add README
         if job['result'].get('readme'):
             zf.writestr('README.md', job['result']['readme'])
-        
+
         # Add multi-file project if exists
         project_dir = 'output/project'
         if os.path.exists(project_dir):
             for filename in os.listdir(project_dir):
                 filepath = os.path.join(project_dir, filename)
                 if os.path.isfile(filepath):
-                    with open(filepath, 'r') as f:
+                    with open(filepath) as f:
                         zf.writestr(f'project/{filename}', f.read())
-    
+
     memory_file.seek(0)
-    
+
     return send_file(
         memory_file,
         mimetype='application/zip',
@@ -313,7 +313,7 @@ def health_check():
 def read_file_safe(filepath):
     """Read a file safely, returning None if it doesn't exist."""
     try:
-        with open(filepath, 'r') as f:
+        with open(filepath) as f:
             return f.read()
     except:
         return None
@@ -322,11 +322,11 @@ def read_file_safe(filepath):
 if __name__ == '__main__':
     # Create output directory if it doesn't exist
     os.makedirs('output', exist_ok=True)
-    
+
     # Use port 8080 to avoid conflict with macOS AirPlay (port 5000)
     port = int(os.environ.get('PORT', 8080))
     host = os.environ.get('HOST', '0.0.0.0')
     debug = os.environ.get('FLASK_DEBUG', 'false').lower() == 'true'
-    print("🚀 Starting Multi-Agent Planner Web Interface...")
-    print(f"📍 Open http://localhost:{port} in your browser")
+    print("Starting Multi-Agent Planner Web Interface...")
+    print(f"Open http://localhost:{port} in your browser")
     app.run(debug=debug, host=host, port=port)

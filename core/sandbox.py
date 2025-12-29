@@ -14,13 +14,12 @@ Usage:
 """
 
 import os
-import sys
 import subprocess
+import sys
 import tempfile
-import shutil
 from dataclasses import dataclass, field
-from typing import Optional, Dict, Any, List
 from enum import Enum
+from typing import Any
 
 
 class ExecutionMethod(Enum):
@@ -36,7 +35,7 @@ class SandboxConfig:
     timeout: int = 30  # seconds
     max_memory_mb: int = 256
     max_output_size: int = 10000  # characters
-    allowed_imports: List[str] = field(default_factory=lambda: [
+    allowed_imports: list[str] = field(default_factory=lambda: [
         # Core utilities
         "math", "random", "datetime", "json", "re", "collections",
         "itertools", "functools", "string", "csv", "io", "statistics",
@@ -58,8 +57,8 @@ class ExecutionResult:
     """Result of sandboxed code execution."""
     success: bool
     output: str
-    error: Optional[str] = None
-    execution_time: Optional[float] = None
+    error: str | None = None
+    execution_time: float | None = None
     method_used: str = "unknown"
 
 
@@ -67,10 +66,10 @@ class ExecutionResult:
 # RestrictedPython Execution (Lightweight)
 # ============================================
 
-def _get_restricted_globals() -> Dict[str, Any]:
+def _get_restricted_globals() -> dict[str, Any]:
     """Create a restricted globals dict for safe execution."""
     import builtins
-    
+
     # Safe builtins - includes class definition support
     safe_builtins = {
         # Class definition essentials
@@ -103,7 +102,7 @@ def _get_restricted_globals() -> Dict[str, Any]:
         'getattr': getattr, 'setattr': setattr, 'hasattr': hasattr, 'delattr': delattr,
         'callable': callable, 'vars': vars,
     }
-    
+
     return {
         '__builtins__': safe_builtins,
         '__name__': '__main__',
@@ -111,7 +110,7 @@ def _get_restricted_globals() -> Dict[str, Any]:
     }
 
 
-def _safe_import(name: str, allowed_imports: List[str]) -> Any:
+def _safe_import(name: str, allowed_imports: list[str]) -> Any:
     """Safely import only allowed modules."""
     if name not in allowed_imports:
         raise ImportError(f"Import of '{name}' is not allowed. Allowed: {allowed_imports}")
@@ -129,30 +128,30 @@ def execute_restricted(code: str, config: SandboxConfig) -> ExecutionResult:
     - Adding timeout protection
     """
     import time
+    from contextlib import redirect_stderr, redirect_stdout
     from io import StringIO
-    from contextlib import redirect_stdout, redirect_stderr
-    
+
     start_time = time.time()
     output_buffer = StringIO()
     error_buffer = StringIO()
-    
+
     try:
         # Create restricted environment
         restricted_globals = _get_restricted_globals()
-        
+
         # Add safe import function
         def safe_import(name, globals=None, locals=None, fromlist=(), level=0):
             return _safe_import(name, config.allowed_imports)
-        
+
         restricted_globals['__builtins__']['__import__'] = safe_import
-        
+
         # Pre-import allowed modules
         for mod_name in config.allowed_imports:
             try:
                 restricted_globals[mod_name] = __import__(mod_name)
             except ImportError:
                 pass
-        
+
         # Check for truly dangerous patterns (system access, code injection)
         # Note: We allow classes (__class__), eval in strings, and input for UI code
         dangerous_patterns = [
@@ -166,7 +165,7 @@ def execute_restricted(code: str, config: SandboxConfig) -> ExecutionResult:
             ('execfile', 'File execution'),
             ('reload', 'Module reload'),
         ]
-        
+
         for pattern, reason in dangerous_patterns:
             if pattern in code:
                 return ExecutionResult(
@@ -175,27 +174,27 @@ def execute_restricted(code: str, config: SandboxConfig) -> ExecutionResult:
                     error=f"Security violation: {reason} ('{pattern}' is not allowed)",
                     method_used="restricted"
                 )
-        
+
         # Code containing GUI/input/eval needs subprocess execution for full testing
         needs_subprocess = any(p in code for p in ['input(', 'eval(', 'tkinter', 'tk.', 'mainloop'])
         if needs_subprocess:
             # Fall back to subprocess for GUI/interactive code
             return execute_subprocess(code, config)
-        
+
         # Execute with captured output
         with redirect_stdout(output_buffer), redirect_stderr(error_buffer):
             exec(code, restricted_globals)
-        
+
         execution_time = time.time() - start_time
         output = output_buffer.getvalue()[:config.max_output_size]
-        
+
         return ExecutionResult(
             success=True,
             output=output,
             execution_time=execution_time,
             method_used="restricted"
         )
-        
+
     except Exception as e:
         execution_time = time.time() - start_time
         return ExecutionResult(
@@ -218,7 +217,7 @@ def execute_docker(code: str, config: SandboxConfig) -> ExecutionResult:
     Requires Docker to be installed and running.
     """
     import time
-    
+
     # Check if Docker is available
     try:
         subprocess.run(
@@ -234,14 +233,14 @@ def execute_docker(code: str, config: SandboxConfig) -> ExecutionResult:
             error="Docker is not available. Install Docker or use 'restricted' method.",
             method_used="docker"
         )
-    
+
     start_time = time.time()
-    
+
     # Create temporary file for the code
     with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
         f.write(code)
         temp_file = f.name
-    
+
     try:
         # Run in Docker with strict limits
         result = subprocess.run(
@@ -262,10 +261,10 @@ def execute_docker(code: str, config: SandboxConfig) -> ExecutionResult:
             text=True,
             timeout=config.timeout
         )
-        
+
         execution_time = time.time() - start_time
         output = result.stdout[:config.max_output_size]
-        
+
         if result.returncode == 0:
             return ExecutionResult(
                 success=True,
@@ -281,7 +280,7 @@ def execute_docker(code: str, config: SandboxConfig) -> ExecutionResult:
                 execution_time=execution_time,
                 method_used="docker"
             )
-            
+
     except subprocess.TimeoutExpired:
         return ExecutionResult(
             success=False,
@@ -305,7 +304,7 @@ def execute_subprocess(code: str, config: SandboxConfig) -> ExecutionResult:
     Less secure than Docker but works everywhere.
     """
     import time
-    
+
     # Check for interactive code that would hang waiting for input
     if 'input(' in code:
         return ExecutionResult(
@@ -314,7 +313,7 @@ def execute_subprocess(code: str, config: SandboxConfig) -> ExecutionResult:
             execution_time=0,
             method_used="subprocess_skip"
         )
-    
+
     # Check for GUI mainloop that would hang
     if any(p in code for p in ['mainloop()', '.mainloop()']):
         return ExecutionResult(
@@ -323,14 +322,14 @@ def execute_subprocess(code: str, config: SandboxConfig) -> ExecutionResult:
             execution_time=0,
             method_used="subprocess_skip"
         )
-    
+
     start_time = time.time()
-    
+
     # Create temporary file for the code
     with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
         f.write(code)
         temp_file = f.name
-    
+
     try:
         result = subprocess.run(
             [sys.executable, temp_file],
@@ -344,10 +343,10 @@ def execute_subprocess(code: str, config: SandboxConfig) -> ExecutionResult:
                 "HOME": tempfile.gettempdir(),
             }
         )
-        
+
         execution_time = time.time() - start_time
         output = result.stdout[:config.max_output_size]
-        
+
         if result.returncode == 0:
             return ExecutionResult(
                 success=True,
@@ -363,7 +362,7 @@ def execute_subprocess(code: str, config: SandboxConfig) -> ExecutionResult:
                 execution_time=execution_time,
                 method_used="subprocess"
             )
-            
+
     except subprocess.TimeoutExpired:
         return ExecutionResult(
             success=False,
@@ -384,7 +383,7 @@ def execute_code_safely(
     method: str = "restricted",
     timeout: int = 30,
     max_memory_mb: int = 256,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Execute code safely using the specified isolation method.
     
@@ -409,16 +408,16 @@ def execute_code_safely(
         timeout=timeout,
         max_memory_mb=max_memory_mb,
     )
-    
+
     executors = {
         ExecutionMethod.RESTRICTED: execute_restricted,
         ExecutionMethod.DOCKER: execute_docker,
         ExecutionMethod.SUBPROCESS: execute_subprocess,
     }
-    
+
     executor = executors[config.method]
     result = executor(code, config)
-    
+
     return {
         "success": result.success,
         "output": result.output,

@@ -8,20 +8,19 @@ Only use LLM for static code review when no execution data is available.
 """
 
 import json
-from typing import Any, Dict, Optional, Union
+from typing import Any
 
-from core.llm_provider import get_llm_client, BaseLLMClient
+from core.llm_provider import BaseLLMClient, get_llm_client
 from core.memory import Memory
-from core.task_schema import Task
 
 
 class QAAgent:
     """Agent responsible for quality assurance and code validation."""
-    
+
     temperature: float
     client: BaseLLMClient
     memory: Memory
-    
+
     def __init__(self, temperature: float = 0.2) -> None:
         self.temperature = temperature
         self.client = get_llm_client(temperature=temperature, max_tokens=512)
@@ -29,10 +28,10 @@ class QAAgent:
 
     def evaluate_code(
         self,
-        code_result: Union[Dict[str, Any], str],
+        code_result: dict[str, Any] | str,
         temperature: float = 0.2,
         max_tokens: int = 512
-    ) -> Dict[str, str]:
+    ) -> dict[str, str]:
         """
         Evaluate code based on execution results.
         
@@ -48,12 +47,12 @@ class QAAgent:
         Returns:
             Dict with status, result (optional), and critique keys
         """
-        
+
         # If we have execution data from sandbox, trust it
         if isinstance(code_result, dict):
             status = code_result.get("status")
             result_output = code_result.get("result", "")
-            
+
             # Trust actual execution results from sandbox
             if status in ["passed", "failed"]:
                 return {
@@ -61,30 +60,30 @@ class QAAgent:
                     "result": result_output,
                     "critique": self._get_critique(code_result) if status == "failed" else "",
                 }
-        
+
         # Fallback: LLM static analysis (when no execution data)
         code_string = code_result.get("code", "") if isinstance(code_result, dict) else str(code_result)
         return self._llm_static_analysis(code_string, temperature, max_tokens)
-    
-    def _get_critique(self, code_result: Dict[str, Any]) -> str:
+
+    def _get_critique(self, code_result: dict[str, Any]) -> str:
         """Extract or generate critique for failed code."""
         result_output: str = code_result.get("result", "")
         code: str = code_result.get("code", "")
-        
+
         # If there's an error message, that's the critique
         if "Error:" in result_output or "error:" in result_output.lower():
             return result_output
-        
+
         return f"Code execution failed. Output: {result_output[:500]}"
-    
+
     def _llm_static_analysis(
         self,
         code_string: str,
         temperature: float,
         max_tokens: int
-    ) -> Dict[str, str]:
+    ) -> dict[str, str]:
         """Use LLM for static code analysis when no execution data is available."""
-        cached: Optional[Dict[str, str]] = self.memory.get(code_string)
+        cached: dict[str, str] | None = self.memory.get(code_string)
         if cached:
             return cached
 
@@ -105,7 +104,7 @@ class QAAgent:
                 temperature=temperature,
                 max_tokens=max_tokens
             )
-            
+
             # Extract JSON from response (handle markdown code blocks)
             response_text = response.strip()
             if response_text.startswith("```"):
@@ -113,10 +112,10 @@ class QAAgent:
                 if response_text.startswith("json"):
                     response_text = response_text[4:]
             response_text = response_text.strip()
-            
-            parsed: Dict[str, Any] = json.loads(response_text)
 
-            result: Dict[str, str] = {
+            parsed: dict[str, Any] = json.loads(response_text)
+
+            result: dict[str, str] = {
                 "status": "passed" if parsed.get("success", False) else "failed",
                 "critique": parsed.get("critique", "")
             }

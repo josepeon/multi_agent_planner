@@ -9,19 +9,19 @@ Supports parallel execution of independent tasks using ThreadPoolExecutor.
 
 import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from agents.planner import PlannerAgent
-from agents.developer import DeveloperAgent
-from agents.qa import QAAgent
-from agents.critic import CriticAgent
 from agents.architect import ArchitectAgent
-from agents.integrator import IntegratorAgent
-from agents.test_generator import TestGeneratorAgent
+from agents.critic import CriticAgent
+from agents.developer import DeveloperAgent
 from agents.documenter import DocumenterAgent
+from agents.integrator import IntegratorAgent
+from agents.planner import PlannerAgent
+from agents.qa import QAAgent
+from agents.test_generator import TestGeneratorAgent
 from core.memory import Memory
+from core.shared_context import SharedContext, get_shared_context, reset_shared_context
 from core.task_schema import Task
-from core.shared_context import get_shared_context, reset_shared_context, SharedContext
 
 # Initialize agents
 planner: PlannerAgent = PlannerAgent()
@@ -40,7 +40,7 @@ MAX_RETRIES: int = 3  # Number of times to retry failed tasks with critic feedba
 MULTI_FILE_OUTPUT: bool = True  # Whether to generate multi-file project structure
 
 
-def develop_with_retry(task: Task, max_retries: int = MAX_RETRIES) -> Dict[str, Any]:
+def develop_with_retry(task: Task, max_retries: int = MAX_RETRIES) -> dict[str, Any]:
     """
     Develop code for a task with retry logic.
     If QA fails, get critic feedback and retry up to max_retries times.
@@ -50,10 +50,10 @@ def develop_with_retry(task: Task, max_retries: int = MAX_RETRIES) -> Dict[str, 
     best_code = None
     best_qa_result = None
     critique = ""
-    
+
     # Get context summary for the developer
     context_summary = shared_context.get_context_summary()
-    
+
     for attempt in range(max_retries):
         # Develop code (pass feedback and context from previous attempt if any)
         context_message = f"\n\n## Context from previous tasks:\n{context_summary}" if context_summary else ""
@@ -65,21 +65,21 @@ def develop_with_retry(task: Task, max_retries: int = MAX_RETRIES) -> Dict[str, 
                 code = developer.develop(task, feedback_message=context_message)
             else:
                 code = developer.develop(task)
-        
+
         print(f"\n  Generated Code (Attempt {attempt + 1}/{max_retries}):")
         print(f"  {code}\n")
-        
+
         # Run QA
         qa_result = qa_checker.evaluate_code(code)
         passed = qa_result.get('status') == 'passed'
-        
-        print(f"  QA Result: {'✅ Passed' if passed else '❌ Failed'}")
-        
+
+        print(f"  QA Result: {'PASSED' if passed else 'FAILED'}")
+
         # Track best attempt
         if best_code is None or passed:
             best_code = code
             best_qa_result = qa_result
-        
+
         if passed:
             return {
                 "code": code,
@@ -88,13 +88,13 @@ def develop_with_retry(task: Task, max_retries: int = MAX_RETRIES) -> Dict[str, 
                 "attempts": attempt + 1,
                 "passed": True
             }
-        
+
         # Get critic feedback for retry
         if attempt < max_retries - 1:  # Don't get feedback on last attempt
             critique = critic.review(task.description, code, qa_result.get('result'))
             feedback = f"Previous attempt failed. Critic feedback:\n{critique}\n\nPlease fix these issues."
             print(f"\n  Critic Feedback (will retry):\n  {critique[:200]}...")
-    
+
     # Return best attempt after all retries exhausted
     return {
         "code": best_code,
@@ -147,30 +147,30 @@ def run_pipeline(task: Task, save_path: str = "output/session_log.json") -> str:
     print(architect.get_design_summary())
 
     session_log = {"prompt": original_prompt, "architecture": architecture.description, "tasks": []}
-    
+
     passed_count = 0
     failed_count = 0
 
     for task in tasks:
         print(f"\n{'='*60}")
-        print(f"DEVELOPMENT + QA STAGE")
+        print("DEVELOPMENT + QA STAGE")
         print(f"Task {task.id}: {task.description}")
         print(f"{'='*60}")
 
         # Develop with retry loop
         result = develop_with_retry(task, MAX_RETRIES)
-        
+
         code = result["code"]
         qa_result = result["qa_result"]
         critique = result["critique"]
-        
+
         # Extract the actual code string
         code_str = code.get("code") if isinstance(code, dict) else code
-        
+
         if result["passed"]:
             passed_count += 1
             task.status = "complete"
-            print(f"\n✅ Task {task.id} PASSED (after {result['attempts']} attempt(s))")
+            print(f"\n[OK] Task {task.id} PASSED (after {result['attempts']} attempt(s))")
             # Store successful code in shared context for future tasks
             shared_context.add_generated_code(
                 task_id=task.id,
@@ -181,10 +181,10 @@ def run_pipeline(task: Task, save_path: str = "output/session_log.json") -> str:
         else:
             failed_count += 1
             task.status = "failed"
-            print(f"\n❌ Task {task.id} FAILED (after {result['attempts']} attempts)")
+            print(f"\n[FAIL] Task {task.id} FAILED (after {result['attempts']} attempts)")
             if critique:
                 print(f"\nFinal Critique:\n{critique}")
-        
+
         task.result = code
 
         session_log["tasks"].append({
@@ -205,79 +205,77 @@ def run_pipeline(task: Task, save_path: str = "output/session_log.json") -> str:
     # Save log
     with open(save_path, "w") as f:
         json.dump(session_log, f, indent=2)
-    print(f"\n📝 Session log saved to: {save_path}")
+    print(f"\nSession log saved to: {save_path}")
 
     # Integrate final code using the Integrator agent
     print(f"\n{'='*60}")
     print("INTEGRATION STAGE")
     print(f"{'='*60}")
-    
+
     # Choose single or multi-file output
     if MULTI_FILE_OUTPUT:
         print("  Mode: Multi-file project structure")
         files = integrator.integrate_multifile(session_log, "output/project")
-        
+
         # Also create a combined final_program.py for backwards compatibility
         final_code = integrator.integrate(session_log)
         with open("output/final_program.py", "w") as f:
             f.write(final_code)
-        print(f"  ✅ Single-file backup: output/final_program.py")
+        print("  Single-file backup: output/final_program.py")
     else:
         final_code = integrator.integrate(session_log)
         with open("output/final_program.py", "w") as f:
             f.write(final_code)
-        print(f"\n✅ Final program saved to: output/final_program.py")
-    
+        print("\nFinal program saved to: output/final_program.py")
+
     # Run test generation and documentation in parallel
     print(f"\n{'='*60}")
     print("TEST + DOCUMENTATION STAGE (Parallel)")
     print(f"{'='*60}")
-    
+
     def generate_tests_task():
         """Generate pytest tests for the final code."""
         return test_generator.generate_tests(final_code)
-    
+
     def generate_docs_task():
         """Generate README documentation."""
         return documenter.generate_readme(final_code, original_prompt)
-    
+
     # Execute both tasks in parallel
     test_code = None
     readme = None
-    
+
     with ThreadPoolExecutor(max_workers=2) as executor:
         futures = {
             executor.submit(generate_tests_task): "tests",
             executor.submit(generate_docs_task): "docs"
         }
-        
+
         for future in as_completed(futures):
             task_name = futures[future]
             try:
                 result = future.result()
                 if task_name == "tests":
                     test_code = result
-                    print(f"  ✅ Test generation complete")
+                    print("  Test generation complete")
                 else:
                     readme = result
-                    print(f"  ✅ Documentation generation complete")
+                    print("  Documentation generation complete")
             except Exception as e:
-                print(f"  ❌ {task_name} failed: {e}")
+                print(f"  {task_name} failed: {e}")
                 if task_name == "tests":
                     test_code = "# Test generation failed"
                 else:
                     readme = "# Documentation generation failed"
-    
+
     # Save outputs
     with open("output/test_program.py", "w") as f:
         f.write(test_code)
-    print(f"✅ Tests saved to: output/test_program.py")
-    
+    print("Tests saved to: output/test_program.py")
+
     with open("output/README.md", "w") as f:
         f.write(readme)
-    print(f"✅ README saved to: output/README.md")
-    
-    memory.set("last_final_code", final_code)
+    print("README saved to: output/README.md")
     memory.set("last_tests", test_code)
     memory.set("last_readme", readme)
     return final_code

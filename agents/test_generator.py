@@ -6,20 +6,18 @@ Generates pytest unit tests for generated code.
 Analyzes classes and functions to create comprehensive test coverage.
 """
 
-import re
-from typing import Optional
 
-from core.llm_provider import get_llm_client, BaseLLMClient
-from core.shared_context import get_shared_context, SharedContext
+from core.llm_provider import BaseLLMClient, get_llm_client
+from core.shared_context import SharedContext, get_shared_context
 
 
 class TestGeneratorAgent:
     """Agent responsible for generating pytest unit tests."""
-    
+
     temperature: float
     client: BaseLLMClient
     shared_context: SharedContext
-    
+
     def __init__(self, temperature: float = 0.2) -> None:
         self.temperature = temperature
         self.client = get_llm_client(temperature=temperature)
@@ -36,7 +34,7 @@ class TestGeneratorAgent:
         Returns:
             pytest test code as a string
         """
-        
+
         system_message = """You are a senior QA engineer writing pytest unit tests.
 
 RULES:
@@ -92,26 +90,26 @@ Output ONLY the pytest code:"""
                 temperature=self.temperature,
                 max_tokens=2500
             )
-            
+
             test_code = self._clean_code(response)
             return test_code
-            
+
         except Exception as e:
             return f"# Test generation failed: {str(e)}"
 
     def _clean_code(self, code: str) -> str:
         """Clean up LLM response to extract pure Python code."""
         code = code.strip()
-        
+
         # Remove markdown code blocks
         if code.startswith("```python"):
             code = code[9:]
         elif code.startswith("```"):
             code = code[3:]
-        
+
         if code.endswith("```"):
             code = code[:-3]
-        
+
         return code.strip()
 
     def generate_tests_for_session(self, session_log: dict) -> str:
@@ -129,9 +127,9 @@ Output ONLY the pytest code:"""
             code = task.get("code", "")
             if code and task.get("status") == "complete":
                 all_code.append(code)
-        
+
         if not all_code:
             return "# No code to test"
-        
+
         combined_code = "\n\n".join(all_code)
         return self.generate_tests(combined_code)

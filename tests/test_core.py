@@ -2,11 +2,9 @@
 Tests for the Multi-Agent Planner system.
 """
 
-import pytest
-import json
-import tempfile
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import MagicMock, patch
 
+import pytest
 
 # ===========================================
 # Import Tests
@@ -17,7 +15,7 @@ class TestImports:
 
     def test_import_agents(self):
         """Test agent imports."""
-        from agents import PlannerAgent, DeveloperAgent, QAAgent, CriticAgent
+        from agents import CriticAgent, DeveloperAgent, PlannerAgent, QAAgent
         assert PlannerAgent is not None
         assert DeveloperAgent is not None
         assert QAAgent is not None
@@ -26,11 +24,11 @@ class TestImports:
     def test_import_core(self):
         """Test core module imports."""
         from core import (
-            get_llm_client,
-            execute_code_safely,
-            retry_with_backoff,
             Memory,
             Task,
+            execute_code_safely,
+            get_llm_client,
+            retry_with_backoff,
         )
         assert get_llm_client is not None
         assert execute_code_safely is not None
@@ -261,11 +259,11 @@ class TestMemory:
         from core.memory import Memory
 
         filepath = str(tmp_path / "test_memory.json")
-        
+
         # Create and set
         memory1 = Memory(filepath=filepath)
         memory1.set("persistent_key", "persistent_value")
-        
+
         # Load new instance
         memory2 = Memory(filepath=filepath)
         assert memory2.get("persistent_key") == "persistent_value"
@@ -312,20 +310,20 @@ class TestRetryLogic:
 
     def test_calculate_delay_exponential(self):
         """Test exponential backoff calculation."""
-        from core.retry import calculate_delay, RetryConfig
+        from core.retry import RetryConfig, calculate_delay
 
         config = RetryConfig(base_delay=1.0, exponential_base=2.0, jitter=False)
-        
+
         assert calculate_delay(0, config) == 1.0
         assert calculate_delay(1, config) == 2.0
         assert calculate_delay(2, config) == 4.0
 
     def test_calculate_delay_max_cap(self):
         """Test delay is capped at max_delay."""
-        from core.retry import calculate_delay, RetryConfig
+        from core.retry import RetryConfig, calculate_delay
 
         config = RetryConfig(base_delay=10.0, max_delay=20.0, jitter=False)
-        
+
         # 10 * 2^3 = 80, should be capped at 20
         assert calculate_delay(3, config) == 20.0
 
@@ -406,54 +404,54 @@ class TestGroqClientMocked:
     def test_groq_client_chat(self):
         """Test Groq client chat method."""
         from core.llm_provider import GroqClient, LLMConfig
-        
+
         # Setup mock
         mock_client = MagicMock()
         mock_response = MagicMock()
         mock_response.choices = [MagicMock()]
         mock_response.choices[0].message.content = "Hello, World!"
         mock_client.chat.completions.create.return_value = mock_response
-        
+
         # Patch Groq where it's imported
         with patch('groq.Groq', return_value=mock_client):
             with patch.dict('os.environ', {'GROQ_API_KEY': 'test-key'}):
                 config = LLMConfig(provider="groq")
                 client = GroqClient(config)
                 result = client.chat("Say hello")
-                
+
                 assert result == "Hello, World!"
                 mock_client.chat.completions.create.assert_called_once()
 
     def test_groq_client_fallback_on_rate_limit(self):
         """Test Groq client falls back to different model on rate limit."""
         from core.llm_provider import GroqClient, LLMConfig
-        
+
         # Setup mock
         mock_client = MagicMock()
-        
+
         # First call raises rate limit, second succeeds
         mock_response = MagicMock()
         mock_response.choices = [MagicMock()]
         mock_response.choices[0].message.content = "Fallback success"
-        
+
         mock_client.chat.completions.create.side_effect = [
             Exception("rate_limit exceeded"),
             mock_response
         ]
-        
+
         with patch('groq.Groq', return_value=mock_client):
             with patch.dict('os.environ', {'GROQ_API_KEY': 'test-key'}):
                 config = LLMConfig(provider="groq")
                 client = GroqClient(config)
                 result = client.chat("Test")
-                
+
                 assert result == "Fallback success"
                 assert len(mock_client.chat.completions.create.call_args_list) == 2
 
     def test_groq_fallback_models_defined(self):
         """Test Groq client has fallback models defined."""
         from core.llm_provider import GroqClient
-        
+
         assert hasattr(GroqClient, 'FALLBACK_MODELS')
         assert len(GroqClient.FALLBACK_MODELS) >= 1
 
@@ -483,7 +481,7 @@ class TestSharedContext:
             code="class TestClass:\n    pass",
             status="passed"
         )
-        
+
         summary = ctx.get_context_summary()
         assert "TestClass" in summary
 
@@ -493,7 +491,7 @@ class TestSharedContext:
 
         ctx = SharedContext(filepath=str(tmp_path / "context.json"))
         ctx.defined_classes["Calculator"] = "class Calculator:\n    def add(self, a, b): return a + b"
-        
+
         assert "Calculator" in ctx.defined_classes
 
     def test_context_persistence(self, tmp_path):
@@ -501,12 +499,12 @@ class TestSharedContext:
         from core.shared_context import SharedContext
 
         filepath = str(tmp_path / "context.json")
-        
+
         # Create and save
         ctx1 = SharedContext(filepath=filepath)
         ctx1.imports.add("json")
         ctx1._save()
-        
+
         # Load in new instance
         ctx2 = SharedContext(filepath=filepath)
         assert "json" in ctx2.imports
@@ -534,7 +532,7 @@ class TestBaseAgent:
 
         agent = BaseAgent("test_agent")
         task = Task(id=1, description="Test")
-        
+
         with pytest.raises(NotImplementedError):
             agent.run(task)
 
@@ -582,13 +580,13 @@ print(f"First todo: {todos[0].title}")
         from core.memory import Memory
 
         memory = Memory(filepath=str(tmp_path / "agent_memory.json"))
-        
+
         # Simulate agent caching LLM response
         prompt_hash = "abc123"
         response = "def add(a, b):\n    return a + b"
-        
+
         memory.set(f"llm_response_{prompt_hash}", response)
-        
+
         # Retrieve cached response
         cached = memory.get(f"llm_response_{prompt_hash}")
         assert cached == response

@@ -8,17 +8,16 @@ Generates comprehensive documentation for generated code:
 - Adds type hints where missing
 """
 
-from typing import Optional
 
-from core.llm_provider import get_llm_client, BaseLLMClient
+from core.llm_provider import BaseLLMClient, get_llm_client
 
 
 class DocumenterAgent:
     """Agent responsible for generating documentation and docstrings."""
-    
+
     temperature: float
     client: BaseLLMClient
-    
+
     def __init__(self, temperature: float = 0.2) -> None:
         self.temperature = temperature
         self.client = get_llm_client(temperature=temperature)
@@ -34,7 +33,7 @@ class DocumenterAgent:
         Returns:
             README.md content as a string
         """
-        
+
         system_message = """You are a technical writer creating documentation.
 
 Generate a professional README.md file with these sections:
@@ -67,7 +66,7 @@ Generate the README.md:"""
                 max_tokens=2000
             )
             return response.strip()
-            
+
         except Exception as e:
             return f"# Project\n\nREADME generation failed: {str(e)}"
 
@@ -81,7 +80,7 @@ Generate the README.md:"""
         Returns:
             Code with added docstrings
         """
-        
+
         system_message = """You are a senior Python developer adding documentation.
 
 RULES:
@@ -124,20 +123,20 @@ Return the documented code:"""
                 max_tokens=3000
             )
             return self._clean_code(response)
-            
-        except Exception as e:
+
+        except Exception:
             return code  # Return original if documentation fails
 
     def _clean_code(self, code: str) -> str:
         """Clean up LLM response."""
         code = code.strip()
-        
+
         if code.startswith("```python"):
             code = code[9:]
         elif code.startswith("```"):
             code = code[3:]
-        
+
         if code.endswith("```"):
             code = code[:-3]
-        
+
         return code.strip()

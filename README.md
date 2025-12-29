@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🤖 Multi-Agent Planner
+#  Multi-Agent Planner
 
 [![Python 3.11](https://img.shields.io/badge/Python-3.11-blue.svg)](https://www.python.org/downloads/)
 [![Groq](https://img.shields.io/badge/Groq-Llama%203.3%2070B-orange.svg)](https://console.groq.com/)
@@ -15,7 +15,7 @@
 
 ---
 
-## 🎯 Overview
+##  Overview
 
 Multi-Agent Planner is an intelligent code generation system that orchestrates **8 specialized AI agents** to transform your ideas into production-ready Python code. Simply describe what you want to build, and the system will:
 
@@ -26,32 +26,32 @@ Multi-Agent Planner is an intelligent code generation system that orchestrates *
 5. **Review** and improve
 6. **Document** everything
 
-> 💡 **Free to use** - Powered by Groq's free Llama 3.3 70B API with automatic fallback
+>  **Free to use** - Powered by Groq's free Llama 3.3 70B API with automatic fallback
 
 ---
 
-## ✨ Features
+##  Features
 
 | Feature | Description |
 |---------|-------------|
-| 🆓 **Free by Default** | Uses Groq's free Llama 3.3 70B API with auto-fallback to backup models |
-| 🏗️ **Architecture-First** | Architect agent creates high-level design before any code is written |
-| 🔄 **Smart Retry** | Failed tasks retry up to 3x with critic feedback for self-healing |
-| 🧠 **Shared Context** | Agents share knowledge of defined classes/functions via AST analysis |
-| 🔒 **Sandboxed Execution** | Safe code execution with restricted, subprocess, or Docker isolation |
-| 🔌 **Multi-Provider** | Switch between Groq, Gemini, Ollama, OpenAI, or OpenRouter |
-| 📁 **Multi-File Output** | Generate organized project structures (models.py, services.py, main.py) |
-| 🧪 **Auto-Generated Tests** | TestGenerator creates comprehensive pytest test suites |
-| 📝 **Auto Documentation** | Documenter agent creates README and adds docstrings |
-| ⚡ **Parallel Execution** | Tests and documentation generated concurrently |
-| 🌐 **Web Interface** | Flask-based UI with rate limiting and OpenAPI/Swagger docs |
-| 🐳 **Docker Ready** | Dockerfile + docker-compose for containerized deployment |
-| 🔁 **CI/CD Pipeline** | GitHub Actions for automated testing and linting |
-| 💾 **Persistent Memory** | Caches results to avoid redundant API calls |
+|  **Free by Default** | Uses Groq's free Llama 3.3 70B API with auto-fallback to backup models |
+|  **Architecture-First** | Architect agent creates high-level design before any code is written |
+|  **Smart Retry** | Failed tasks retry up to 3x with critic feedback for self-healing |
+|  **Shared Context** | Agents share knowledge of defined classes/functions via AST analysis |
+|  **Sandboxed Execution** | Safe code execution with restricted, subprocess, or Docker isolation |
+|  **Multi-Provider** | Switch between Groq, Gemini, Ollama, OpenAI, or OpenRouter |
+|  **Multi-File Output** | Generate organized project structures (models.py, services.py, main.py) |
+|  **Auto-Generated Tests** | TestGenerator creates comprehensive pytest test suites |
+|  **Auto Documentation** | Documenter agent creates README and adds docstrings |
+|  **Parallel Execution** | Tests and documentation generated concurrently |
+|  **Web Interface** | Flask-based UI with rate limiting and OpenAPI/Swagger docs |
+|  **Docker Ready** | Dockerfile + docker-compose for containerized deployment |
+|  **CI/CD Pipeline** | GitHub Actions for automated testing and linting |
+|  **Persistent Memory** | Caches results to avoid redundant API calls |
 
 ---
 
-## 🤖 Agent Pipeline
+##  Agent Pipeline
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -61,28 +61,28 @@ Multi-Agent Planner is an intelligent code generation system that orchestrates *
                                     │
                                     ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  📋 PLANNER          Breaks prompt into 2-4 logical modules                  │
+│   PLANNER          Breaks prompt into 2-4 logical modules                  │
 └─────────────────────────────────────────────────────────────────────────────┘
                                     │
                                     ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  🏗️ ARCHITECT        Creates high-level design (classes, interfaces)        │
+│   ARCHITECT        Creates high-level design (classes, interfaces)        │
 └─────────────────────────────────────────────────────────────────────────────┘
                                     │
                                     ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  💻 DEVELOPER        Writes Python code for each module                      │
+│   DEVELOPER        Writes Python code for each module                      │
 │                      ↺ Retries with CRITIC feedback (up to 3x)              │
 └─────────────────────────────────────────────────────────────────────────────┘
                                     │
                                     ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  ✅ QA AGENT         Validates execution in sandbox                          │
+│   QA AGENT         Validates execution in sandbox                          │
 └─────────────────────────────────────────────────────────────────────────────┘
                                     │
                                     ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  🔗 INTEGRATOR       Merges all code into cohesive program                   │
+│   INTEGRATOR       Merges all code into cohesive program                   │
 │                      Creates multi-file structure with import validation     │
 └─────────────────────────────────────────────────────────────────────────────┘
                                     │
@@ -90,21 +90,21 @@ Multi-Agent Planner is an intelligent code generation system that orchestrates *
                     │         PARALLEL              │
                     ▼                               ▼
 ┌───────────────────────────────┐   ┌───────────────────────────────┐
-│  🧪 TEST GENERATOR            │   │  📝 DOCUMENTER                 │
+│   TEST GENERATOR            │   │   DOCUMENTER                 │
 │  Creates pytest test suite    │   │  Creates README + docstrings  │
 └───────────────────────────────┘   └───────────────────────────────┘
                     │                               │
                     └───────────────┬───────────────┘
                                     ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                           📦 OUTPUT                                          │
+│                            OUTPUT                                          │
 │   output/final_program.py  |  output/test_program.py  |  output/README.md   │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 🚀 Quick Start
+##  Quick Start
 
 ### 1. Clone and Setup
 
@@ -153,7 +153,7 @@ docker compose up
 
 ---
 
-## 🧪 Testing
+##  Testing
 
 ```bash
 # Run all tests
@@ -167,7 +167,7 @@ python -m pytest tests/ --cov=agents --cov=core
 
 ---
 
-## 🌐 Web Interface
+##  Web Interface
 
 <div align="center">
 
@@ -201,7 +201,7 @@ python web/app.py
 
 ---
 
-## 📁 Project Structure
+##  Project Structure
 
 ```
 multi_agent_planner/
@@ -246,7 +246,7 @@ multi_agent_planner/
 
 ---
 
-## 🏗️ Architecture
+##  Architecture
 
 ### Agent Roles
 
@@ -265,25 +265,25 @@ multi_agent_planner/
 
 | Provider | Cost | Models | Auto-Fallback |
 |----------|------|--------|---------------|
-| **Groq** | ✅ FREE | llama-3.3-70b-versatile | → llama-3.1-8b-instant → gemma2-9b-it |
-| **Gemini** | ✅ FREE tier | gemini-2.0-flash | - |
-| **Ollama** | ✅ FREE (local) | llama3.2, codellama | - |
-| **OpenAI** | 💰 Paid | gpt-4o, gpt-4 | - |
-| **OpenRouter** | 💰 Pay-per-use | All models | - |
+| **Groq** |  FREE | llama-3.3-70b-versatile | → llama-3.1-8b-instant → gemma2-9b-it |
+| **Gemini** |  FREE tier | gemini-2.0-flash | - |
+| **Ollama** |  FREE (local) | llama3.2, codellama | - |
+| **OpenAI** |  Paid | gpt-4o, gpt-4 | - |
+| **OpenRouter** |  Pay-per-use | All models | - |
 
 ### Security
 
 | Sandbox Method | Security Level | Requirements |
 |----------------|----------------|--------------|
-| `restricted` | ⭐⭐⭐ | None (default) |
-| `docker` | ⭐⭐⭐⭐⭐ | Docker installed |
-| `subprocess` | ⭐⭐ | None |
+| `restricted` |  | None (default) |
+| `docker` |  | Docker installed |
+| `subprocess` |  | None |
 
 **Blocked operations:** `os.system`, `subprocess`, `eval`, `exec`, `__import__`, file I/O, network access
 
 ---
 
-## 📖 API Usage
+##  API Usage
 
 ### LLM Client
 
@@ -321,7 +321,7 @@ result = orchestrator.run("Create a calculator with basic operations")
 
 ---
 
-## 📦 Output Options
+##  Output Options
 
 ### Single File (default)
 ```
@@ -347,7 +347,7 @@ output/project/
 
 ---
 
-## 🛠️ Tech Stack
+##  Tech Stack
 
 | Component | Technology |
 |-----------|------------|
@@ -364,7 +364,7 @@ output/project/
 
 ---
 
-## � Docker Deployment
+## [Docker] Docker Deployment
 
 ### Quick Start with Docker Compose
 
@@ -399,7 +399,7 @@ docker run -p 8080:8080 -e GROQ_API_KEY=your-key multi-agent-planner
 
 ---
 
-## �📋 Requirements
+## [Docker] Requirements
 
 - Python 3.11+
 - Groq API key (free) or other LLM provider
@@ -407,13 +407,13 @@ docker run -p 8080:8080 -e GROQ_API_KEY=your-key multi-agent-planner
 
 ---
 
-## 📄 License
+##  License
 
 MIT License - feel free to use this project for any purpose.
 
 ---
 
-## 🤝 Contributing
+##  Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
@@ -421,8 +421,6 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 <div align="center">
 
-**Built with ❤️ using AI agents**
-
-[⬆ Back to top](#-multi-agent-planner)
+[ Back to top](#-multi-agent-planner)
 
 </div>

@@ -7,12 +7,12 @@ Includes sandboxed execution for validation.
 """
 
 import re
-from typing import Any, Dict, Optional
+from typing import Any
 
-from core.llm_provider import get_llm_client, BaseLLMClient
+from core.llm_provider import BaseLLMClient, get_llm_client
 from core.memory import Memory
-from core.task_schema import Task
 from core.sandbox import execute_code_safely
+from core.task_schema import Task
 
 
 def clean_code_block(code: str) -> str:
@@ -25,12 +25,12 @@ def clean_code_block(code: str) -> str:
 
 class DeveloperAgent:
     """Agent responsible for writing and revising Python code."""
-    
+
     temperature: float
     sandbox_method: str
     client: BaseLLMClient
     memory: Memory
-    
+
     def __init__(self, temperature: float = 0.3, sandbox_method: str = "restricted") -> None:
         self.temperature = temperature
         self.sandbox_method = sandbox_method  # 'restricted', 'docker', or 'subprocess'
@@ -40,7 +40,7 @@ class DeveloperAgent:
     def write_code(
         self,
         task_description: str,
-        feedback_message: Optional[str] = None,
+        feedback_message: str | None = None,
         temperature: float = 0.3,
         max_tokens: int = 2048
     ) -> str:
@@ -88,7 +88,7 @@ class DeveloperAgent:
                 code = clean_code_block(code)
                 # Optionally remove markdown-like instructional content
                 code = code.split("```")[0].split("To execute")[0].strip()
-                
+
                 # Check if code is syntactically complete
                 try:
                     compile(code, "<string>", "exec")
@@ -103,9 +103,9 @@ class DeveloperAgent:
                     return code
             except Exception as e:
                 return f"LLM API error: {str(e)}"
-        
+
         return ""  # Should not reach here
-    
+
     def revise_code(self, task: Task, previous_code: str, feedback_message: str) -> str:
         """
         Revise code based on feedback from critic or error messages.
@@ -143,7 +143,7 @@ class DeveloperAgent:
         except Exception as e:
             return f"LLM API error during revision: {str(e)}"
 
-    def _execute_code(self, code: str) -> Dict[str, Any]:
+    def _execute_code(self, code: str) -> dict[str, Any]:
         """Execute code safely using sandboxed execution."""
         # First validate syntax before attempting execution
         try:
@@ -155,7 +155,7 @@ class DeveloperAgent:
                 "error": f"Syntax error at line {e.lineno}: {e.msg}",
                 "method": "syntax_check",
             }
-        
+
         # Skip execution for GUI code that can't run headless
         if any(pattern in code for pattern in ['mainloop()', 'tk.mainloop', '.mainloop()']):
             return {
@@ -164,7 +164,7 @@ class DeveloperAgent:
                 "error": None,
                 "method": "gui_skip",
             }
-        
+
         result = execute_code_safely(
             code,
             method=self.sandbox_method,
@@ -180,9 +180,9 @@ class DeveloperAgent:
     def develop(
         self,
         task: Task,
-        critic: Optional[Any] = None,
-        feedback_message: Optional[str] = None
-    ) -> Dict[str, Any]:
+        critic: Any | None = None,
+        feedback_message: str | None = None
+    ) -> dict[str, Any]:
         """
         Develop code for a task with optional critic feedback loop.
         
@@ -198,7 +198,7 @@ class DeveloperAgent:
         """
         # Pass feedback to write_code if provided (from orchestrator retry loop)
         task_code = self.write_code(task.description, feedback_message=feedback_message)
-        
+
         # Save generated code for reference
         with open("generated_code.py", "w") as f:
             f.write(task_code)
@@ -207,7 +207,7 @@ class DeveloperAgent:
         exec_result = self._execute_code(task_code)
         output = exec_result["output"]
         passed = exec_result["passed"]
-        
+
         if exec_result.get("error"):
             output = f"{output}\nError: {exec_result['error']}"
 
@@ -215,10 +215,10 @@ class DeveloperAgent:
         if not passed and critic:
             feedback = critic.review(task.description, task_code, output)
             revised_code = self.revise_code(task, task_code, feedback)
-            
+
             with open("generated_code.py", "w") as f:
                 f.write(revised_code)
-            
+
             # Execute revised code in sandbox
             exec_result = self._execute_code(revised_code)
             return {

@@ -6,44 +6,44 @@ All Round 3 production hardening improvements are complete!
 
 ---
 
-## Round 3 - Production Hardening ✅
+## Round 3 - Production Hardening [DONE]
 
 | # | Improvement | Priority | Effort | Status |
 |---|-------------|----------|--------|--------|
-| 1 | Unit tests for the system | 🔴 High | 2-3 hrs | ✅ Done |
-| 2 | CI/CD pipeline (GitHub Actions) | 🔴 High | 1 hr | ✅ Done |
-| 3 | Structured logging | 🟡 Medium | 1 hr | ✅ Done |
-| 4 | Type hints throughout | 🟡 Medium | 2 hrs | ✅ Done |
-| 5 | Dockerize the system | 🟡 Medium | 1 hr | ✅ Done |
-| 6 | API rate limiting | 🟢 Low | 30 min | ✅ Done |
-| 7 | OpenAPI/Swagger docs | 🟢 Low | 1 hr | ✅ Done |
+| 1 | Unit tests for the system |  High | 2-3 hrs | [DONE] Done |
+| 2 | CI/CD pipeline (GitHub Actions) |  High | 1 hr | [DONE] Done |
+| 3 | Structured logging |  Medium | 1 hr | [DONE] Done |
+| 4 | Type hints throughout |  Medium | 2 hrs | [DONE] Done |
+| 5 | Dockerize the system |  Medium | 1 hr | [DONE] Done |
+| 6 | API rate limiting |  Low | 30 min | [DONE] Done |
+| 7 | OpenAPI/Swagger docs |  Low | 1 hr | [DONE] Done |
 
 ---
 
-## Round 2 - Feature Complete ✅
+## Round 2 - Feature Complete [DONE]
 
 | # | Improvement | Priority | Status | Notes |
 |---|-------------|----------|--------|-------|
-| 1 | Parallel task execution | Medium | ✅ Done | Test + Documentation run in parallel using ThreadPoolExecutor |
-| 2 | File-based output | Medium | ✅ Done | Multi-file project structure (models.py, services.py, main.py) |
-| 3 | Unit test generation | Medium | ✅ Done | agents/test_generator.py, generates pytest tests |
-| 4 | Documentation agent | Medium | ✅ Done | agents/documenter.py, generates README.md |
-| 5 | Better shared context | Medium | ✅ Done | Now includes actual code snippets |
-| 6 | Web UI / API interface | Large | ✅ Done | Flask web app at web/app.py |
+| 1 | Parallel task execution | Medium | [DONE] Done | Test + Documentation run in parallel using ThreadPoolExecutor |
+| 2 | File-based output | Medium | [DONE] Done | Multi-file project structure (models.py, services.py, main.py) |
+| 3 | Unit test generation | Medium | [DONE] Done | agents/test_generator.py, generates pytest tests |
+| 4 | Documentation agent | Medium | [DONE] Done | agents/documenter.py, generates README.md |
+| 5 | Better shared context | Medium | [DONE] Done | Now includes actual code snippets |
+| 6 | Web UI / API interface | Large | [DONE] Done | Flask web app at web/app.py |
 
 **Bonus**: Auto-fallback for Groq rate limits, AST-based import validation for multi-file output.
 
 ---
 
-## Round 1 - Core Architecture ✅
+## Round 1 - Core Architecture [DONE]
 
-- ✅ Expand sandbox allowed imports
-- ✅ Add retry loop with critic feedback
-- ✅ Add shared context memory
-- ✅ Smarter planner (fewer tasks)
-- ✅ Add Architect agent
-- ✅ Add Integrator agent
-- ✅ Fix QA to trust sandbox results
+- [DONE] Expand sandbox allowed imports
+- [DONE] Add retry loop with critic feedback
+- [DONE] Add shared context memory
+- [DONE] Smarter planner (fewer tasks)
+- [DONE] Add Architect agent
+- [DONE] Add Integrator agent
+- [DONE] Fix QA to trust sandbox results
 
 ---
 

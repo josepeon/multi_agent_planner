@@ -5,20 +5,18 @@ Critic Agent Module
 Reviews code and provides constructive feedback for failed execution attempts.
 """
 
-from typing import Optional
 
-from core.llm_provider import get_llm_client, BaseLLMClient
+from core.llm_provider import BaseLLMClient, get_llm_client
 from core.memory import Memory
-from core.task_schema import Task
 
 
 class CriticAgent:
     """Agent responsible for reviewing code and providing improvement suggestions."""
-    
+
     temperature: float
     client: BaseLLMClient
     memory: Memory
-    
+
     def __init__(
         self,
         temperature: float = 0.3,
@@ -54,7 +52,7 @@ class CriticAgent:
         )
 
         cache_key = f"{task_description}|{code}|{error_message}"
-        cached_review: Optional[str] = self.memory.get(cache_key)
+        cached_review: str | None = self.memory.get(cache_key)
         if cached_review:
             return cached_review
 

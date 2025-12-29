@@ -18,14 +18,13 @@ Usage:
     logger.error("Failed to execute", error="Details here")
 """
 
+import json
 import logging
 import os
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Any, Dict
-import json
-
+from typing import Any
 
 # ===========================================
 # Color Codes for Console Output
@@ -35,14 +34,14 @@ class Colors:
     """ANSI color codes for terminal output."""
     RESET = "\033[0m"
     BOLD = "\033[1m"
-    
+
     # Log levels
     DEBUG = "\033[36m"     # Cyan
     INFO = "\033[32m"      # Green
     WARNING = "\033[33m"   # Yellow
     ERROR = "\033[31m"     # Red
     CRITICAL = "\033[35m"  # Magenta
-    
+
     # Components
     AGENT = "\033[34m"     # Blue
     TASK = "\033[36m"      # Cyan
@@ -57,7 +56,7 @@ class ColoredFormatter(logging.Formatter):
     """
     Custom formatter that adds colors for console output.
     """
-    
+
     LEVEL_COLORS = {
         logging.DEBUG: Colors.DEBUG,
         logging.INFO: Colors.INFO,
@@ -65,14 +64,14 @@ class ColoredFormatter(logging.Formatter):
         logging.ERROR: Colors.ERROR,
         logging.CRITICAL: Colors.CRITICAL,
     }
-    
+
     def format(self, record: logging.LogRecord) -> str:
         # Add color based on level
         level_color = self.LEVEL_COLORS.get(record.levelno, Colors.RESET)
-        
+
         # Format timestamp
         timestamp = datetime.fromtimestamp(record.created).strftime("%H:%M:%S")
-        
+
         # Build formatted message
         parts = [
             f"{Colors.TIME}{timestamp}{Colors.RESET}",
@@ -80,11 +79,11 @@ class ColoredFormatter(logging.Formatter):
             f"{Colors.AGENT}[{record.name}]{Colors.RESET}",
             record.getMessage(),
         ]
-        
+
         # Add extra fields if present
         if hasattr(record, 'task_id'):
             parts.insert(3, f"{Colors.TASK}(task:{record.task_id}){Colors.RESET}")
-        
+
         return " ".join(parts)
 
 
@@ -92,7 +91,7 @@ class JSONFormatter(logging.Formatter):
     """
     JSON formatter for structured log output.
     """
-    
+
     def format(self, record: logging.LogRecord) -> str:
         log_entry = {
             "timestamp": datetime.fromtimestamp(record.created).isoformat(),
@@ -100,16 +99,16 @@ class JSONFormatter(logging.Formatter):
             "logger": record.name,
             "message": record.getMessage(),
         }
-        
+
         # Add extra fields
         for key in ['task_id', 'agent', 'error', 'code', 'status']:
             if hasattr(record, key):
                 log_entry[key] = getattr(record, key)
-        
+
         # Add exception info if present
         if record.exc_info:
             log_entry['exception'] = self.formatException(record.exc_info)
-        
+
         return json.dumps(log_entry)
 
 
@@ -123,44 +122,44 @@ class AgentLogger:
     
     Provides structured logging with automatic context fields.
     """
-    
+
     def __init__(self, name: str, logger: logging.Logger):
         self.name = name
         self._logger = logger
-    
+
     def _log(self, level: int, msg: str, **kwargs: Any) -> None:
         """Log with extra context fields."""
         extra = {k: v for k, v in kwargs.items() if v is not None}
         self._logger.log(level, msg, extra=extra)
-    
+
     def debug(self, msg: str, **kwargs: Any) -> None:
         self._log(logging.DEBUG, msg, **kwargs)
-    
+
     def info(self, msg: str, **kwargs: Any) -> None:
         self._log(logging.INFO, msg, **kwargs)
-    
+
     def warning(self, msg: str, **kwargs: Any) -> None:
         self._log(logging.WARNING, msg, **kwargs)
-    
+
     def error(self, msg: str, **kwargs: Any) -> None:
         self._log(logging.ERROR, msg, **kwargs)
-    
+
     def critical(self, msg: str, **kwargs: Any) -> None:
         self._log(logging.CRITICAL, msg, **kwargs)
-    
+
     # Convenience methods for common patterns
     def task_start(self, task_id: int, description: str) -> None:
         self.info(f"Starting: {description[:50]}...", task_id=task_id)
-    
+
     def task_complete(self, task_id: int) -> None:
         self.info("Task completed", task_id=task_id, status="completed")
-    
+
     def task_failed(self, task_id: int, error: str) -> None:
         self.error(f"Task failed: {error[:100]}", task_id=task_id, status="failed")
-    
+
     def llm_call(self, prompt_preview: str) -> None:
         self.debug(f"LLM call: {prompt_preview[:50]}...")
-    
+
     def code_execution(self, success: bool, output: str = "") -> None:
         if success:
             self.debug(f"Code executed successfully: {output[:50]}...")
@@ -172,12 +171,12 @@ class AgentLogger:
 # Logger Factory
 # ===========================================
 
-_loggers: Dict[str, AgentLogger] = {}
+_loggers: dict[str, AgentLogger] = {}
 
 
 def setup_logging(
     level: str = "INFO",
-    log_file: Optional[str] = None,
+    log_file: str | None = None,
     json_format: bool = False,
 ) -> None:
     """
@@ -190,20 +189,20 @@ def setup_logging(
     """
     root = logging.getLogger()
     root.setLevel(getattr(logging, level.upper()))
-    
+
     # Clear existing handlers
     root.handlers = []
-    
+
     # Console handler with colors
     console = logging.StreamHandler(sys.stdout)
     console.setFormatter(ColoredFormatter())
     root.addHandler(console)
-    
+
     # File handler (optional)
     if log_file:
         log_path = Path(log_file)
         log_path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         file_handler = logging.FileHandler(log_file)
         if json_format:
             file_handler.setFormatter(JSONFormatter())

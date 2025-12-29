@@ -7,16 +7,16 @@ Provides persistent key-value storage for agents to maintain state across sessio
 import json
 import os
 from dataclasses import asdict
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 class Memory:
     """Persistent key-value store with JSON file backing."""
-    
-    data: Dict[str, Any]
-    filepath: Optional[str]
-    
-    def __init__(self, filepath: Optional[str] = None) -> None:
+
+    data: dict[str, Any]
+    filepath: str | None
+
+    def __init__(self, filepath: str | None = None) -> None:
         self.data = {}
         self.filepath = filepath
         if filepath and os.path.exists(filepath):
@@ -25,7 +25,7 @@ class Memory:
     def _load(self) -> None:
         """Load data from the backing JSON file."""
         try:
-            with open(self.filepath, 'r') as f:
+            with open(self.filepath) as f:
                 self.data = json.load(f)
         except Exception as e:
             print(f"Failed to load memory file: {e}")

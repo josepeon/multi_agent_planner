@@ -6,7 +6,6 @@ Breaks down user requests into logical development modules using LLM.
 """
 
 import re
-from typing import List
 
 from core.llm_provider import get_llm_client
 from core.memory import Memory
@@ -17,14 +16,14 @@ memory = Memory("output/memory.json")
 
 class PlannerAgent:
     """Agent responsible for decomposing user requests into development tasks."""
-    
+
     temperature: float
-    
+
     def __init__(self, temperature: float = 0.3) -> None:
         self.temperature = temperature
         self.client = get_llm_client(temperature=temperature)
 
-    def plan_task(self, user_prompt: str) -> List[str]:
+    def plan_task(self, user_prompt: str) -> list[str]:
         """
         Break down a user prompt into 2-4 logical development modules.
         
@@ -73,19 +72,19 @@ enough that a developer can implement it without guessing."""
         except Exception as e:
             return [f"LLM API error: {str(e)}"]
 
-        subtasks: List[str] = [
+        subtasks: list[str] = [
             re.sub(r"^\s*\d+[\.\):\-]\s*", "", line).strip()
             for line in output.split("\n")
             if re.match(r"^\s*\d+[\.\):\-]", line)
         ]
-        
+
         # Limit to 4 tasks max to prevent over-fragmentation
         if len(subtasks) > 4:
             subtasks = subtasks[:4]
-        
+
         return subtasks
 
-    def plan(self, user_prompt: str) -> List[Task]:
+    def plan(self, user_prompt: str) -> list[Task]:
         """
         Plan tasks for a user prompt, with caching support.
         

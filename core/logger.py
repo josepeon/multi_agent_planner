@@ -12,7 +12,7 @@ Features:
 
 Usage:
     from core.logger import get_logger
-    
+
     logger = get_logger("AgentName")
     logger.info("Processing task", task_id=1)
     logger.error("Failed to execute", error="Details here")
@@ -119,7 +119,7 @@ class JSONFormatter(logging.Formatter):
 class AgentLogger:
     """
     Context-aware logger wrapper for agents.
-    
+
     Provides structured logging with automatic context fields.
     """
 
@@ -181,7 +181,7 @@ def setup_logging(
 ) -> None:
     """
     Configure the logging system.
-    
+
     Args:
         level: Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
         log_file: Optional file path for log output
@@ -216,10 +216,10 @@ def setup_logging(
 def get_logger(name: str) -> AgentLogger:
     """
     Get a logger instance for the given name.
-    
+
     Args:
         name: Logger name (typically agent or module name)
-        
+
     Returns:
         AgentLogger instance with context-aware methods
     """

@@ -8,7 +8,7 @@ Provides safe execution of LLM-generated code using multiple isolation strategie
 
 Usage:
     from core.sandbox import execute_code_safely, SandboxConfig
-    
+
     result = execute_code_safely(code, method="restricted")
     print(result["output"])
 """
@@ -120,7 +120,7 @@ def _safe_import(name: str, allowed_imports: list[str]) -> Any:
 def execute_restricted(code: str, config: SandboxConfig) -> ExecutionResult:
     """
     Execute code with RestrictedPython-style restrictions.
-    
+
     This provides basic sandboxing without Docker by:
     - Limiting available builtins
     - Restricting imports to a whitelist
@@ -213,7 +213,7 @@ def execute_restricted(code: str, config: SandboxConfig) -> ExecutionResult:
 def execute_docker(code: str, config: SandboxConfig) -> ExecutionResult:
     """
     Execute code in a Docker container for maximum isolation.
-    
+
     Requires Docker to be installed and running.
     """
     import time
@@ -300,7 +300,7 @@ def execute_docker(code: str, config: SandboxConfig) -> ExecutionResult:
 def execute_subprocess(code: str, config: SandboxConfig) -> ExecutionResult:
     """
     Execute code in a subprocess with basic isolation.
-    
+
     Less secure than Docker but works everywhere.
     """
     import time
@@ -386,16 +386,16 @@ def execute_code_safely(
 ) -> dict[str, Any]:
     """
     Execute code safely using the specified isolation method.
-    
+
     Args:
         code: Python code to execute
         method: One of 'restricted', 'docker', 'subprocess'
         timeout: Maximum execution time in seconds
         max_memory_mb: Maximum memory (for Docker)
-    
+
     Returns:
         Dict with keys: success, output, error, execution_time, method_used
-    
+
     Example:
         result = execute_code_safely("print('Hello World')")
         if result['success']:

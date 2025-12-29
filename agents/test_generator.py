@@ -26,11 +26,11 @@ class TestGeneratorAgent:
     def generate_tests(self, code: str, project_name: str = "project") -> str:
         """
         Generate pytest unit tests for the given code.
-        
+
         Args:
             code: The source code to generate tests for
             project_name: Name of the project (used for file naming)
-            
+
         Returns:
             pytest test code as a string
         """
@@ -115,10 +115,10 @@ Output ONLY the pytest code:"""
     def generate_tests_for_session(self, session_log: dict) -> str:
         """
         Generate tests for all code in a session.
-        
+
         Args:
             session_log: The session log containing all generated code
-            
+
         Returns:
             Combined pytest test code
         """

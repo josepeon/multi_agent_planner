@@ -15,11 +15,11 @@ Features:
 
 Usage:
     from core.llm_provider import get_llm_client, LLMConfig
-    
+
     # Use default provider from .env (Groq)
     client = get_llm_client()
     response = client.chat("What is Python?")
-    
+
     # Or specify provider
     client = get_llm_client(provider="gemini")
 """
@@ -127,16 +127,16 @@ class OpenAIClient(BaseLLMClient):
 class GroqClient(BaseLLMClient):
     """
     Groq API client - FREE and FAST!
-    
+
     Models available (with separate rate limits):
     - llama-3.3-70b-versatile (best quality) - 100k TPD
     - llama-3.1-8b-instant (fastest) - 500k TPD
     - mixtral-8x7b-32768 (good for long context) - 500k TPD
     - gemma2-9b-it (good alternative) - 500k TPD
-    
+
     Auto-fallback: When primary model hits rate limit, automatically
     switches to fallback models with higher limits.
-    
+
     Get free API key at: https://console.groq.com/
     """
 
@@ -155,8 +155,8 @@ class GroqClient(BaseLLMClient):
         try:
             from groq import Groq
             self.client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-        except ImportError:
-            raise ImportError("Please install groq: pip install groq")
+        except ImportError as e:
+            raise ImportError("Please install groq: pip install groq") from e
 
     def _get_available_model(self) -> str:
         """Get an available model, falling back if primary is rate limited."""
@@ -194,7 +194,7 @@ class GroqClient(BaseLLMClient):
         last_error = None
 
         # Try available models
-        for attempt in range(len(self.FALLBACK_MODELS) + 2):
+        for _attempt in range(len(self.FALLBACK_MODELS) + 2):
             self.current_model = self._get_available_model()
 
             try:
@@ -226,14 +226,14 @@ class GroqClient(BaseLLMClient):
 class GeminiClient(BaseLLMClient):
     """
     Google Gemini API client - FREE tier available!
-    
+
     Free tier: 15 requests/minute, 1500 requests/day
-    
+
     Models:
     - gemini-2.0-flash-exp (newest, fastest)
     - gemini-1.5-pro (best quality)
     - gemini-1.5-flash (balanced)
-    
+
     Get free API key at: https://aistudio.google.com/apikey
     """
 
@@ -243,8 +243,8 @@ class GeminiClient(BaseLLMClient):
             import google.generativeai as genai
             genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
             self.model = genai.GenerativeModel(self.config.model)
-        except ImportError:
-            raise ImportError("Please install google-generativeai: pip install google-generativeai")
+        except ImportError as e:
+            raise ImportError("Please install google-generativeai: pip install google-generativeai") from e
 
     def chat(
         self,
@@ -290,10 +290,10 @@ class GeminiClient(BaseLLMClient):
 class OllamaClient(BaseLLMClient):
     """
     Ollama client - FREE, runs locally!
-    
+
     Install: https://ollama.ai/
     Then: ollama pull llama3.2
-    
+
     Models:
     - llama3.2 (8B, good balance)
     - codellama (specialized for code)
@@ -345,9 +345,9 @@ class OllamaClient(BaseLLMClient):
 class OpenRouterClient(BaseLLMClient):
     """
     OpenRouter API client - Access to ALL models!
-    
+
     Pay-per-use with many cheap/free options.
-    
+
     Get API key at: https://openrouter.ai/
     """
 
@@ -405,17 +405,17 @@ def get_llm_client(
 ) -> BaseLLMClient:
     """
     Factory function to get an LLM client.
-    
+
     Args:
         provider: One of 'openai', 'groq', 'gemini', 'ollama', 'openrouter'
                   Defaults to LLM_PROVIDER env var or 'openai'
         model: Model name (uses provider default if not specified)
         temperature: Sampling temperature
         max_tokens: Maximum tokens in response
-    
+
     Returns:
         Configured LLM client
-    
+
     Example:
         # Use free Groq API
         client = get_llm_client(provider="groq")

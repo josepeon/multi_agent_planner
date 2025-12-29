@@ -9,11 +9,11 @@ Provides robust retry mechanisms for LLM API calls and other operations:
 
 Usage:
     from core.retry import retry_with_backoff, RetryConfig
-    
+
     @retry_with_backoff(max_retries=3)
     def call_llm():
         return client.chat("Hello")
-    
+
     # Or use the context manager
     with RetryContext(max_retries=3) as ctx:
         result = ctx.execute(lambda: client.chat("Hello"))
@@ -105,14 +105,14 @@ def retry_with_backoff(
 ) -> Callable:
     """
     Decorator that adds retry logic with exponential backoff.
-    
+
     Args:
         max_retries: Maximum number of retry attempts
         base_delay: Initial delay between retries (seconds)
         max_delay: Maximum delay between retries (seconds)
         retryable_exceptions: List of exception types to retry on
         on_retry: Optional callback called on each retry with (exception, attempt)
-    
+
     Example:
         @retry_with_backoff(max_retries=3)
         def call_api():
@@ -168,7 +168,7 @@ def retry_with_backoff(
 class RetryContext:
     """
     Context manager for retry logic.
-    
+
     Example:
         with RetryContext(max_retries=3) as ctx:
             result = ctx.execute(lambda: api_call())
@@ -225,9 +225,9 @@ def retry_llm_call(
 ) -> T:
     """
     Convenience function for retrying LLM API calls.
-    
+
     Pre-configured with common LLM API error patterns.
-    
+
     Example:
         result = retry_llm_call(lambda: client.chat("Hello"))
     """

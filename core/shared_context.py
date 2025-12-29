@@ -9,7 +9,7 @@ This enables:
 
 Usage:
     from core.shared_context import SharedContext
-    
+
     context = SharedContext()
     context.add_generated_code("models", "class Task: ...")
     context.get_context_summary()  # Returns summary for LLM prompts
@@ -44,7 +44,7 @@ class Architecture:
 class SharedContext:
     """
     Centralized context shared across all agents.
-    
+
     Stores:
     - Architecture specification (from Architect agent)
     - Generated code blocks (from Developer agent)
@@ -195,7 +195,7 @@ class SharedContext:
         """
         Get a summary of the current context for LLM prompts.
         This helps agents know what's already been defined.
-        
+
         Args:
             include_code: If True, include actual code snippets (not just names)
             max_code_lines: Maximum lines per code snippet to avoid token overflow

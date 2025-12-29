@@ -34,16 +34,16 @@ class QAAgent:
     ) -> dict[str, str]:
         """
         Evaluate code based on execution results.
-        
+
         Priority:
         1. Trust actual sandbox execution results (if available)
         2. Fall back to LLM static analysis (if no execution data)
-        
+
         Args:
             code_result: Either a dict with status/result/code or a code string
             temperature: LLM temperature for static analysis
             max_tokens: Max tokens for LLM response
-            
+
         Returns:
             Dict with status, result (optional), and critique keys
         """
@@ -68,7 +68,7 @@ class QAAgent:
     def _get_critique(self, code_result: dict[str, Any]) -> str:
         """Extract or generate critique for failed code."""
         result_output: str = code_result.get("result", "")
-        code: str = code_result.get("code", "")
+        code_result.get("code", "")
 
         # If there's an error message, that's the critique
         if "Error:" in result_output or "error:" in result_output.lower():

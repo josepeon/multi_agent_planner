@@ -26,10 +26,10 @@ class PlannerAgent:
     def plan_task(self, user_prompt: str) -> list[str]:
         """
         Break down a user prompt into 2-4 logical development modules.
-        
+
         Args:
             user_prompt: The user's high-level request
-            
+
         Returns:
             List of module descriptions (2-4 items)
         """
@@ -51,14 +51,14 @@ GOOD EXAMPLE for "Build a todo list manager":
 BAD EXAMPLE (too granular):
 1. Create Task class
 2. Add title attribute
-3. Add completed attribute  
+3. Add completed attribute
 4. Create TaskManager
 5. Implement add method
 6. Implement remove method
 7. Implement list method
 8. Create main function
 
-Output ONLY a numbered list of 2-4 modules. Each module description should be complete 
+Output ONLY a numbered list of 2-4 modules. Each module description should be complete
 enough that a developer can implement it without guessing."""
 
         user_message = f"User request: {user_prompt}"
@@ -87,10 +87,10 @@ enough that a developer can implement it without guessing."""
     def plan(self, user_prompt: str) -> list[Task]:
         """
         Plan tasks for a user prompt, with caching support.
-        
+
         Args:
             user_prompt: The user's high-level request
-            
+
         Returns:
             List of Task objects representing the development plan
         """

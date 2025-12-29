@@ -35,10 +35,10 @@ class IntegratorAgent:
     def integrate(self, session_log: dict[str, Any]) -> str:
         """
         Integrate code from all tasks into a final cohesive program.
-        
+
         Args:
             session_log: The session log containing all task results
-            
+
         Returns:
             The final integrated Python code
         """
@@ -230,11 +230,11 @@ Create the final integrated Python program:"""
     def integrate_multifile(self, session_log: dict, output_dir: str = "output/project") -> dict[str, str]:
         """
         Integrate code into multiple files for better project structure.
-        
+
         Args:
             session_log: The session log containing all task results
             output_dir: Directory to save the generated files
-            
+
         Returns:
             Dictionary mapping filenames to their contents
         """
@@ -349,7 +349,7 @@ Create the multi-file project structure as JSON:"""
                     elif isinstance(node, ast.FunctionDef) and node.col_offset == 0:
                         defs["functions"].add(node.name)
                 definitions[filename] = defs
-            except:
+            except SyntaxError:
                 pass
 
         # Check each file for missing imports
@@ -408,7 +408,7 @@ Create the multi-file project structure as JSON:"""
                             with open(filepath, "w") as f:
                                 f.write(content)
                             files[filename] = content
-            except:
+            except (SyntaxError, OSError):
                 pass
 
     def _parse_multifile_output(self, output: str) -> dict[str, str]:

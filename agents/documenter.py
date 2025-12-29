@@ -25,11 +25,11 @@ class DocumenterAgent:
     def generate_readme(self, code: str, project_description: str) -> str:
         """
         Generate a README.md for the project.
-        
+
         Args:
             code: The source code of the project
             project_description: Original user prompt/description
-            
+
         Returns:
             README.md content as a string
         """
@@ -73,10 +73,10 @@ Generate the README.md:"""
     def add_docstrings(self, code: str) -> str:
         """
         Add comprehensive docstrings to code that's missing them.
-        
+
         Args:
             code: Source code to document
-            
+
         Returns:
             Code with added docstrings
         """
@@ -93,16 +93,16 @@ RULES:
 Google-style docstring format:
 def func(arg1: int, arg2: str) -> bool:
     '''Brief description.
-    
+
     Longer description if needed.
-    
+
     Args:
         arg1: Description of arg1
         arg2: Description of arg2
-        
+
     Returns:
         Description of return value
-        
+
     Raises:
         ValueError: When something is wrong
     '''"""

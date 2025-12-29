@@ -29,12 +29,12 @@ class CriticAgent:
     def review(self, task_description: str, code: str, error_message: str) -> str:
         """
         Review code that failed execution and provide improvement suggestions.
-        
+
         Args:
             task_description: What the code was supposed to accomplish
             code: The Python code that failed
             error_message: Error or output from execution
-            
+
         Returns:
             Review feedback as string
         """

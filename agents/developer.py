@@ -46,13 +46,13 @@ class DeveloperAgent:
     ) -> str:
         """
         Generate Python code for a given task description.
-        
+
         Args:
             task_description: What the code should accomplish
             feedback_message: Optional error from previous attempt
             temperature: LLM temperature setting
             max_tokens: Maximum tokens for response
-            
+
         Returns:
             Generated Python code as string
         """
@@ -109,12 +109,12 @@ class DeveloperAgent:
     def revise_code(self, task: Task, previous_code: str, feedback_message: str) -> str:
         """
         Revise code based on feedback from critic or error messages.
-        
+
         Args:
             task: The original task
             previous_code: Code that failed
             feedback_message: What went wrong
-            
+
         Returns:
             Revised Python code
         """
@@ -185,15 +185,15 @@ class DeveloperAgent:
     ) -> dict[str, Any]:
         """
         Develop code for a task with optional critic feedback loop.
-        
+
         Args:
             task: The task to develop code for
             critic: Optional critic agent for internal retry (deprecated, use orchestrator retry)
             feedback_message: Optional feedback from previous failed attempt
-            
+
         Returns:
             Dict with code, result, status, and sandbox_method keys
-        
+
         Uses sandboxed execution for safety.
         """
         # Pass feedback to write_code if provided (from orchestrator retry loop)

@@ -108,11 +108,11 @@ def develop_with_retry(task: Task, max_retries: int = MAX_RETRIES) -> dict[str, 
 def run_pipeline(task: Task, save_path: str = "output/session_log.json") -> str:
     """
     Run the full multi-agent code generation pipeline.
-    
+
     Args:
         task: The Task object containing the user's request
         save_path: Path to save the session log JSON
-        
+
     Returns:
         The final generated code as a string
     """
@@ -215,7 +215,7 @@ def run_pipeline(task: Task, save_path: str = "output/session_log.json") -> str:
     # Choose single or multi-file output
     if MULTI_FILE_OUTPUT:
         print("  Mode: Multi-file project structure")
-        files = integrator.integrate_multifile(session_log, "output/project")
+        integrator.integrate_multifile(session_log, "output/project")
 
         # Also create a combined final_program.py for backwards compatibility
         final_code = integrator.integrate(session_log)

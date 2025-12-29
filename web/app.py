@@ -41,7 +41,7 @@ app = Flask(__name__)
 class RateLimiter:
     """
     Simple in-memory rate limiter.
-    
+
     For production, use Redis-based limiter (Flask-Limiter).
     """
 
@@ -54,7 +54,7 @@ class RateLimiter:
     def is_allowed(self, key: str) -> tuple[bool, int]:
         """
         Check if a request is allowed.
-        
+
         Returns:
             (allowed: bool, remaining: int)
         """
@@ -176,7 +176,7 @@ def generate():
     """
     Start code generation from a project description.
     Returns immediately with a job ID.
-    
+
     Rate limited: 10 requests per minute per IP.
     """
     data = request.json
@@ -315,7 +315,7 @@ def read_file_safe(filepath):
     try:
         with open(filepath) as f:
             return f.read()
-    except:
+    except OSError:
         return None
 
 

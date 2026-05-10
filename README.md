@@ -273,13 +273,21 @@ multi_agent_planner/
 
 ### Security
 
-| Sandbox Method | Security Level | Requirements |
-|----------------|----------------|--------------|
-| `restricted` |  | None (default) |
-| `docker` |  | Docker installed |
-| `subprocess` |  | None |
+| Sandbox Method | What it actually provides | Requirements |
+|---|---|---|
+| `restricted` (default) | **Real security isolation.** AST allowlist blocks network, file I/O, subprocess, `eval`/`exec`, dangerous dunders. Safe for untrusted input. | None |
+| `docker` | **Strongest isolation.** Container with no network, read-only FS, memory + pid limits. | Docker on host |
+| `crash_isolated` (alias: `subprocess`) | **Crash isolation only — NOT a security boundary.** A subprocess can read/write the host filesystem, open sockets, and exec arbitrary binaries. Used as a fallback when restricted-mode code requires `input()` / GUI / `eval`. Hosted deployments serving untrusted input should disable it (see below). | None |
 
-**Blocked operations:** `os.system`, `subprocess`, `eval`, `exec`, `__import__`, file I/O, network access
+**Disabling the crash-isolated fallback in production**
+
+Set `MAP_FORBID_CRASH_ISOLATED=1` in your environment. With that flag set,
+code that would otherwise fall back to subprocess execution is reported as
+unverifiable instead of executed. Recommended for any web-facing deployment
+where the prompt source is not fully trusted.
+
+**Blocked in restricted mode:** `os.system`, `subprocess`, `eval`, `exec`,
+`__import__`, file I/O, network access, dangerous dunders.
 
 ---
 

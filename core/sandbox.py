@@ -1,10 +1,29 @@
 """
 Sandboxed Code Execution Module
 
-Provides safe execution of LLM-generated code using multiple isolation strategies:
-1. RestrictedPython - AST-level restrictions (lightweight, no Docker needed)
-2. Docker - Full container isolation (most secure, requires Docker)
-3. Subprocess with limits - Basic isolation with timeouts and resource limits
+Provides execution of LLM-generated code with three isolation tiers:
+
+1. ``restricted`` — RestrictedPython AST-level allowlist. **Real security
+   isolation** for code that fits inside the allowlist. Blocks network, file
+   I/O, subprocess, ``eval``/``exec``, and dangerous dunders. The default and
+   the only mode safe for untrusted input on a host without Docker.
+
+2. ``docker`` — Container isolation with no network, read-only FS, memory and
+   pid limits. **Strongest isolation.** Requires Docker on the host.
+
+3. ``crash_isolated`` (legacy name: ``subprocess``) — Runs the code in a child
+   Python process with a timeout. **This is crash isolation only — it is NOT a
+   security boundary.** A subprocess can read/write the host filesystem, open
+   sockets, exec arbitrary binaries, and exfiltrate data. Use only for trusted
+   input or as a fallback for GUI/interactive code that cannot run inside the
+   restricted allowlist.
+
+By default, the restricted executor falls back to ``crash_isolated`` for
+input()/GUI/eval code so the developer agent can validate syntax. To disable
+this fallback (e.g. on a hosted deployment serving untrusted requests), set
+``MAP_FORBID_CRASH_ISOLATED=1`` in the environment. With that flag set,
+crash-isolated execution is refused and the restricted executor reports the
+code as unverifiable instead of falling back.
 
 Usage:
     from core.sandbox import execute_code_safely, SandboxConfig
@@ -17,15 +36,50 @@ import os
 import subprocess
 import sys
 import tempfile
+import warnings
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
 
+# Env var that hosted deployments should set to disable the crash-isolated
+# fallback path entirely. When set, code that requires the fallback is
+# reported as unverifiable instead of executed in a non-sandboxed subprocess.
+FORBID_CRASH_ISOLATED_ENV = "MAP_FORBID_CRASH_ISOLATED"
+
+
+def crash_isolated_forbidden() -> bool:
+    """True if the env explicitly forbids crash-isolated (subprocess) execution."""
+    val = os.environ.get(FORBID_CRASH_ISOLATED_ENV, "").strip().lower()
+    return val in {"1", "true", "yes", "on"}
+
+
 class ExecutionMethod(Enum):
-    RESTRICTED = "restricted"  # RestrictedPython (default, no Docker)
-    DOCKER = "docker"          # Full Docker isolation
-    SUBPROCESS = "subprocess"  # Basic subprocess with limits
+    """Sandbox isolation tier.
+
+    ``CRASH_ISOLATED`` is the canonical name; ``SUBPROCESS`` is kept as an
+    alias for backward compatibility with existing callers and config files.
+    Both resolve to the same enum member at runtime.
+    """
+
+    RESTRICTED = "restricted"            # RestrictedPython, real security
+    DOCKER = "docker"                    # Full container isolation
+    CRASH_ISOLATED = "crash_isolated"    # Subprocess: crash isolation only
+
+    @classmethod
+    def _missing_(cls, value):  # type: ignore[override]
+        # Accept legacy "subprocess" as an alias for crash_isolated.
+        if isinstance(value, str) and value.lower() == "subprocess":
+            warnings.warn(
+                "Sandbox method 'subprocess' is a misleading name and has been "
+                "renamed to 'crash_isolated'. The behavior is unchanged but the "
+                "old name will be removed in a future release. Note: this mode "
+                "provides crash isolation only, NOT security isolation.",
+                DeprecationWarning,
+                stacklevel=3,
+            )
+            return cls.CRASH_ISOLATED
+        return None
 
 
 @dataclass
@@ -175,10 +229,27 @@ def execute_restricted(code: str, config: SandboxConfig) -> ExecutionResult:
                     method_used="restricted"
                 )
 
-        # Code containing GUI/input/eval needs subprocess execution for full testing
-        needs_subprocess = any(p in code for p in ['input(', 'eval(', 'tkinter', 'tk.', 'mainloop'])
-        if needs_subprocess:
-            # Fall back to subprocess for GUI/interactive code
+        # Code containing GUI/input/eval can't run inside the restricted allowlist.
+        # By default we fall back to crash-isolated subprocess execution so the
+        # developer agent can at least validate syntax + simple runtime. Hosted
+        # deployments that serve untrusted input should set
+        # MAP_FORBID_CRASH_ISOLATED=1 to disable this fallback — in that case
+        # we report the code as unverifiable instead of running it.
+        needs_fallback = any(
+            p in code for p in ['input(', 'eval(', 'tkinter', 'tk.', 'mainloop']
+        )
+        if needs_fallback:
+            if crash_isolated_forbidden():
+                return ExecutionResult(
+                    success=False,
+                    output="",
+                    error=(
+                        "Code requires crash-isolated execution (input/GUI/eval), "
+                        f"but {FORBID_CRASH_ISOLATED_ENV}=1 disables that fallback. "
+                        "Use Docker mode or simplify the code."
+                    ),
+                    method_used="crash_isolated_forbidden",
+                )
             return execute_subprocess(code, config)
 
         # Execute with captured output
@@ -412,8 +483,22 @@ def execute_code_safely(
     executors = {
         ExecutionMethod.RESTRICTED: execute_restricted,
         ExecutionMethod.DOCKER: execute_docker,
-        ExecutionMethod.SUBPROCESS: execute_subprocess,
+        ExecutionMethod.CRASH_ISOLATED: execute_subprocess,
     }
+
+    # Honor the explicit forbid-flag for crash-isolated execution.
+    if config.method is ExecutionMethod.CRASH_ISOLATED and crash_isolated_forbidden():
+        return {
+            "success": False,
+            "output": "",
+            "error": (
+                "Crash-isolated (subprocess) execution is disabled by "
+                f"{FORBID_CRASH_ISOLATED_ENV}=1. This mode runs code without "
+                "security isolation; use 'restricted' or 'docker' instead."
+            ),
+            "execution_time": 0,
+            "method_used": "crash_isolated_forbidden",
+        }
 
     executor = executors[config.method]
     result = executor(code, config)

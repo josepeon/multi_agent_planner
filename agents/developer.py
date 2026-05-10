@@ -33,7 +33,10 @@ class DeveloperAgent:
 
     def __init__(self, temperature: float = 0.3, sandbox_method: str = "restricted") -> None:
         self.temperature = temperature
-        self.sandbox_method = sandbox_method  # 'restricted', 'docker', or 'subprocess'
+        # 'restricted' (default, real security), 'docker' (strongest), or
+        # 'crash_isolated' (alias 'subprocess'; crash isolation only — see
+        # core/sandbox.py docstring before using on a hosted deployment).
+        self.sandbox_method = sandbox_method
         self.client = get_llm_client(temperature=temperature, max_tokens=2048)
         self.memory = Memory("memory/developer_memory.json")
 

@@ -22,6 +22,7 @@ from agents.test_generator import TestGeneratorAgent
 from core.memory import Memory
 from core.shared_context import SharedContext, get_shared_context, reset_shared_context
 from core.task_schema import Task
+from core.test_runner import render_summary, run_generated_tests, write_result_log
 
 # Initialize agents
 planner: PlannerAgent = PlannerAgent()
@@ -278,6 +279,20 @@ def run_pipeline(task: Task, save_path: str = "output/session_log.json") -> str:
     print("README saved to: output/README.md")
     memory.set("last_tests", test_code)
     memory.set("last_readme", readme)
+
+    # Verification stage: actually run the generated tests against the
+    # generated program. Without this step, "tests pass" is unverified.
+    print(f"\n{'='*60}")
+    print("TEST EXECUTION STAGE")
+    print(f"{'='*60}")
+    test_result = run_generated_tests(final_code, test_code)
+    print(render_summary(test_result))
+    write_result_log(test_result, "output/test_results.json")
+    session_log["test_run"] = test_result.as_dict()
+    with open(save_path, "w") as f:
+        json.dump(session_log, f, indent=2)
+    memory.set("last_test_run", test_result.as_dict())
+
     return final_code
 
 # Export run_pipeline as run_orchestrator for import

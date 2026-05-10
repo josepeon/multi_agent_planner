@@ -162,7 +162,7 @@ python -m pytest tests/ -v
 # Run with coverage
 python -m pytest tests/ --cov=agents --cov=core
 
-# 60 tests covering agents, core modules, sandbox, and integration
+# 71 tests covering agents, core modules, sandbox, integration, and test execution
 ```
 
 ---
@@ -227,7 +227,7 @@ multi_agent_planner/
 │   ├── app.py                 # Flask server with rate limiting
 │   ├── openapi.yml            # OpenAPI 3.0 specification
 │   └── templates/index.html   # Web UI
-├── tests/                     # Test Suite (60 tests)
+├── tests/                     # Test Suite (71 tests)
 │   ├── test_agents.py         # Agent unit tests
 │   └── test_core.py           # Core module tests
 ├── .github/workflows/         # CI/CD
@@ -356,7 +356,7 @@ output/project/
 | **Web Framework** | Flask with rate limiting |
 | **API Docs** | OpenAPI 3.0 / Swagger UI |
 | **Code Analysis** | AST (Abstract Syntax Tree) |
-| **Testing** | pytest (60 tests) |
+| **Testing** | pytest (71 tests) |
 | **CI/CD** | GitHub Actions |
 | **Containerization** | Docker + Docker Compose |
 | **Concurrency** | ThreadPoolExecutor |

@@ -19,6 +19,8 @@ from agents.integrator import IntegratorAgent
 from agents.planner import PlannerAgent
 from agents.qa import QAAgent
 from agents.test_generator import TestGeneratorAgent
+from core import cost_tracker
+from core.cost_tracker import attribute, begin_run
 from core.memory import Memory
 from core.shared_context import SharedContext, get_shared_context, reset_shared_context
 from core.task_schema import Task
@@ -58,20 +60,22 @@ def develop_with_retry(task: Task, max_retries: int = MAX_RETRIES) -> dict[str, 
     for attempt in range(max_retries):
         # Develop code (pass feedback and context from previous attempt if any)
         context_message = f"\n\n## Context from previous tasks:\n{context_summary}" if context_summary else ""
-        if feedback:
-            full_feedback = feedback + context_message
-            code = developer.develop(task, feedback_message=full_feedback)
-        else:
-            if context_summary and context_summary != "No previous context. This is the first task.":
-                code = developer.develop(task, feedback_message=context_message)
+        with attribute("developer"):
+            if feedback:
+                full_feedback = feedback + context_message
+                code = developer.develop(task, feedback_message=full_feedback)
             else:
-                code = developer.develop(task)
+                if context_summary and context_summary != "No previous context. This is the first task.":
+                    code = developer.develop(task, feedback_message=context_message)
+                else:
+                    code = developer.develop(task)
 
         print(f"\n  Generated Code (Attempt {attempt + 1}/{max_retries}):")
         print(f"  {code}\n")
 
         # Run QA
-        qa_result = qa_checker.evaluate_code(code)
+        with attribute("qa"):
+            qa_result = qa_checker.evaluate_code(code)
         passed = qa_result.get('status') == 'passed'
 
         print(f"  QA Result: {'PASSED' if passed else 'FAILED'}")
@@ -92,7 +96,8 @@ def develop_with_retry(task: Task, max_retries: int = MAX_RETRIES) -> dict[str, 
 
         # Get critic feedback for retry
         if attempt < max_retries - 1:  # Don't get feedback on last attempt
-            critique = critic.review(task.description, code, qa_result.get('result'))
+            with attribute("critic"):
+                critique = critic.review(task.description, code, qa_result.get('result'))
             feedback = f"Previous attempt failed. Critic feedback:\n{critique}\n\nPlease fix these issues."
             print(f"\n  Critic Feedback (will retry):\n  {critique[:200]}...")
 
@@ -117,17 +122,19 @@ def run_pipeline(task: Task, save_path: str = "output/session_log.json") -> str:
     Returns:
         The final generated code as a string
     """
-    # Reset shared context for new session
+    # Reset shared context and cost tracker for new session
     reset_shared_context()
     global shared_context
     shared_context = get_shared_context()
+    begin_run()  # zero out per-run token/cost counters
 
     memory.set("last_prompt", task.description)
 
     # Store the original prompt before task variable gets reassigned
     original_prompt = task.description
 
-    tasks = planner.plan(original_prompt)
+    with attribute("planner"):
+        tasks = planner.plan(original_prompt)
     memory.set("last_tasks", tasks)
 
     print("PLANNING STAGE")
@@ -144,7 +151,8 @@ def run_pipeline(task: Task, save_path: str = "output/session_log.json") -> str:
     print("ARCHITECTURE STAGE")
     print(f"{'='*60}")
     task_descriptions = [t.description if isinstance(t, Task) else t for t in tasks]
-    architecture = architect.design(original_prompt, task_descriptions)
+    with attribute("architect"):
+        architecture = architect.design(original_prompt, task_descriptions)
     print(architect.get_design_summary())
 
     session_log = {"prompt": original_prompt, "architecture": architecture.description, "tasks": []}
@@ -214,20 +222,21 @@ def run_pipeline(task: Task, save_path: str = "output/session_log.json") -> str:
     print(f"{'='*60}")
 
     # Choose single or multi-file output
-    if MULTI_FILE_OUTPUT:
-        print("  Mode: Multi-file project structure")
-        integrator.integrate_multifile(session_log, "output/project")
+    with attribute("integrator"):
+        if MULTI_FILE_OUTPUT:
+            print("  Mode: Multi-file project structure")
+            integrator.integrate_multifile(session_log, "output/project")
 
-        # Also create a combined final_program.py for backwards compatibility
-        final_code = integrator.integrate(session_log)
-        with open("output/final_program.py", "w") as f:
-            f.write(final_code)
-        print("  Single-file backup: output/final_program.py")
-    else:
-        final_code = integrator.integrate(session_log)
-        with open("output/final_program.py", "w") as f:
-            f.write(final_code)
-        print("\nFinal program saved to: output/final_program.py")
+            # Also create a combined final_program.py for backwards compatibility
+            final_code = integrator.integrate(session_log)
+            with open("output/final_program.py", "w") as f:
+                f.write(final_code)
+            print("  Single-file backup: output/final_program.py")
+        else:
+            final_code = integrator.integrate(session_log)
+            with open("output/final_program.py", "w") as f:
+                f.write(final_code)
+            print("\nFinal program saved to: output/final_program.py")
 
     # Run test generation and documentation in parallel
     print(f"\n{'='*60}")
@@ -236,11 +245,13 @@ def run_pipeline(task: Task, save_path: str = "output/session_log.json") -> str:
 
     def generate_tests_task():
         """Generate pytest tests for the final code."""
-        return test_generator.generate_tests(final_code)
+        with attribute("test_generator"):
+            return test_generator.generate_tests(final_code)
 
     def generate_docs_task():
         """Generate README documentation."""
-        return documenter.generate_readme(final_code, original_prompt)
+        with attribute("documenter"):
+            return documenter.generate_readme(final_code, original_prompt)
 
     # Execute both tasks in parallel
     test_code = None
@@ -289,6 +300,18 @@ def run_pipeline(task: Task, save_path: str = "output/session_log.json") -> str:
     print(render_summary(test_result))
     write_result_log(test_result, "output/test_results.json")
     session_log["test_run"] = test_result.as_dict()
+
+    # Per-run cost & token usage report
+    print(f"\n{'='*60}")
+    print("COST & TOKEN REPORT")
+    print(f"{'='*60}")
+    print(cost_tracker.render_summary())
+    cost_snapshot = cost_tracker.to_dict()
+    session_log["cost"] = cost_snapshot
+    with open("output/cost_report.json", "w") as f:
+        json.dump(cost_snapshot, f, indent=2)
+    memory.set("last_cost_report", cost_snapshot)
+
     with open(save_path, "w") as f:
         json.dump(session_log, f, indent=2)
     memory.set("last_test_run", test_result.as_dict())

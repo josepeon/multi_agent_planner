@@ -31,6 +31,8 @@ from dataclasses import dataclass, field
 
 from dotenv import load_dotenv
 
+from core.cost_tracker import record_usage
+
 load_dotenv()
 
 # Set up logging
@@ -121,6 +123,14 @@ class OpenAIClient(BaseLLMClient):
             temperature=temperature or self.config.temperature,
             max_tokens=max_tokens or self.config.max_tokens,
         )
+        usage = getattr(response, "usage", None)
+        if usage is not None:
+            record_usage(
+                provider="openai",
+                model=self.config.model,
+                prompt_tokens=getattr(usage, "prompt_tokens", 0) or 0,
+                completion_tokens=getattr(usage, "completion_tokens", 0) or 0,
+            )
         return response.choices[0].message.content.strip()
 
 
@@ -204,6 +214,14 @@ class GroqClient(BaseLLMClient):
                     temperature=temperature or self.config.temperature,
                     max_tokens=max_tokens or self.config.max_tokens,
                 )
+                usage = getattr(response, "usage", None)
+                if usage is not None:
+                    record_usage(
+                        provider="groq",
+                        model=self.current_model,
+                        prompt_tokens=getattr(usage, "prompt_tokens", 0) or 0,
+                        completion_tokens=getattr(usage, "completion_tokens", 0) or 0,
+                    )
                 return response.choices[0].message.content.strip()
 
             except Exception as e:
@@ -263,6 +281,14 @@ class GeminiClient(BaseLLMClient):
         }
 
         response = self.model.generate_content(prompt, generation_config=generation_config)
+        usage = getattr(response, "usage_metadata", None)
+        if usage is not None:
+            record_usage(
+                provider="gemini",
+                model=self.config.model,
+                prompt_tokens=getattr(usage, "prompt_token_count", 0) or 0,
+                completion_tokens=getattr(usage, "candidates_token_count", 0) or 0,
+            )
         return response.text.strip()
 
     def chat_with_messages(
@@ -339,7 +365,17 @@ class OllamaClient(BaseLLMClient):
             }
         )
         response.raise_for_status()
-        return response.json()["message"]["content"].strip()
+        data = response.json()
+        prompt_tokens = data.get("prompt_eval_count") or 0
+        completion_tokens = data.get("eval_count") or 0
+        if prompt_tokens or completion_tokens:
+            record_usage(
+                provider="ollama",
+                model=self.config.model,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+            )
+        return data["message"]["content"].strip()
 
 
 class OpenRouterClient(BaseLLMClient):
@@ -384,6 +420,14 @@ class OpenRouterClient(BaseLLMClient):
             temperature=temperature or self.config.temperature,
             max_tokens=max_tokens or self.config.max_tokens,
         )
+        usage = getattr(response, "usage", None)
+        if usage is not None:
+            record_usage(
+                provider="openrouter",
+                model=self.config.model,
+                prompt_tokens=getattr(usage, "prompt_tokens", 0) or 0,
+                completion_tokens=getattr(usage, "completion_tokens", 0) or 0,
+            )
         return response.choices[0].message.content.strip()
 
 

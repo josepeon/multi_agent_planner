@@ -38,16 +38,18 @@ Multi-Agent Planner is an intelligent code generation system that orchestrates *
 |  **Architecture-First** | Architect agent creates high-level design before any code is written |
 |  **Smart Retry** | Failed tasks retry up to 3x with critic feedback for self-healing |
 |  **Shared Context** | Agents share knowledge of defined classes/functions via AST analysis |
-|  **Sandboxed Execution** | Safe code execution with restricted, subprocess, or Docker isolation |
+|  **Sandboxed Execution** | Three tiers: `restricted` (real isolation), `docker` (strongest), `crash_isolated` (subprocess fallback for GUI/input) |
 |  **Multi-Provider** | Switch between Groq, Gemini, Ollama, OpenAI, or OpenRouter |
 |  **Multi-File Output** | Generate organized project structures (models.py, services.py, main.py) |
 |  **Auto-Generated Tests** | TestGenerator creates comprehensive pytest test suites |
+|  **Verified Tests** | Generated tests are executed against the generated code; pass/fail recorded in the session log |
 |  **Auto Documentation** | Documenter agent creates README and adds docstrings |
 |  **Parallel Execution** | Tests and documentation generated concurrently |
+|  **Cost & Token Tracking** | Per-agent and per-model token counts and USD cost reported every run; optional budget caps |
 |  **Web Interface** | Flask-based UI with rate limiting and OpenAPI/Swagger docs |
 |  **Docker Ready** | Dockerfile + docker-compose for containerized deployment |
 |  **CI/CD Pipeline** | GitHub Actions for automated testing and linting |
-|  **Persistent Memory** | Caches results to avoid redundant API calls |
+|  **Bounded Cache** | Agent response cache uses LRU + TTL (no more unbounded memory files) |
 
 ---
 
@@ -162,7 +164,7 @@ python -m pytest tests/ -v
 # Run with coverage
 python -m pytest tests/ --cov=agents --cov=core
 
-# 71 tests covering agents, core modules, sandbox, integration, and test execution
+# 125 tests covering agents, core modules, sandbox, integration, test execution, cache, and cost tracking
 ```
 
 ---
@@ -227,7 +229,7 @@ multi_agent_planner/
 │   ├── app.py                 # Flask server with rate limiting
 │   ├── openapi.yml            # OpenAPI 3.0 specification
 │   └── templates/index.html   # Web UI
-├── tests/                     # Test Suite (71 tests)
+├── tests/                     # Test Suite (125 tests)
 │   ├── test_agents.py         # Agent unit tests
 │   └── test_core.py           # Core module tests
 ├── .github/workflows/         # CI/CD
@@ -364,7 +366,7 @@ output/project/
 | **Web Framework** | Flask with rate limiting |
 | **API Docs** | OpenAPI 3.0 / Swagger UI |
 | **Code Analysis** | AST (Abstract Syntax Tree) |
-| **Testing** | pytest (71 tests) |
+| **Testing** | pytest (125 tests) |
 | **CI/CD** | GitHub Actions |
 | **Containerization** | Docker + Docker Compose |
 | **Concurrency** | ThreadPoolExecutor |

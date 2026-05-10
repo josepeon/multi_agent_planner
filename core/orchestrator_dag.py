@@ -40,6 +40,17 @@ from agents.planner import PlannerAgent
 from agents.qa import QAAgent
 from agents.test_generator import TestGeneratorAgent
 from core import cost_tracker
+from core.checkpoints import (
+    ApproveDecision,
+    AutoApproveHandler,
+    CheckpointHandler,
+    CheckpointPrompt,
+    EditDecision,
+    RegenerateDecision,
+    get_handler_from_env,
+    render_architecture,
+    render_plan,
+)
 from core.cost_tracker import attribute, begin_run
 from core.memory import Memory
 from core.pipeline_graph import (
@@ -51,6 +62,21 @@ from core.pipeline_graph import (
 from core.shared_context import SharedContext, get_shared_context, reset_shared_context
 from core.task_schema import Task
 from core.test_runner import render_summary, run_generated_tests, write_result_log
+
+
+MAX_CHECKPOINT_REGEN_TRIES = 3
+
+
+def _apply_checkpoint(handler: CheckpointHandler, prompt: CheckpointPrompt):
+    """Returns (artifact_or_hint, status). Same protocol as the linear orchestrator."""
+    decision = handler.handle(prompt)
+    if isinstance(decision, ApproveDecision):
+        return prompt.artifact, "approved"
+    if isinstance(decision, EditDecision):
+        return decision.new_artifact, "edited"
+    if isinstance(decision, RegenerateDecision):
+        return decision.hint, "regenerate"
+    return prompt.artifact, "approved"
 
 MAX_DEV_RETRIES: int = 3
 MULTI_FILE_OUTPUT: bool = True
@@ -136,6 +162,7 @@ def build_pipeline_graph(
     test_generator: TestGeneratorAgent,
     documenter: DocumenterAgent,
     shared_context: SharedContext,
+    checkpoint_handler: CheckpointHandler | None = None,
 ) -> PipelineGraph:
     """Construct the DAG.
 
@@ -146,18 +173,42 @@ def build_pipeline_graph(
     architect already inspects the task list, so it's the natural place.
     """
     g = PipelineGraph()
+    handler = checkpoint_handler or AutoApproveHandler()
 
     def planner_run(_inputs: dict[str, Any]) -> list[Task]:
-        with attribute("planner"):
-            tasks = planner.plan(prompt)
-        # Normalize to Task objects with stable ids
-        out: list[Task] = []
-        for i, t in enumerate(tasks):
-            if isinstance(t, Task):
-                t.id = i
-                out.append(t)
-            else:
-                out.append(Task(id=i, description=str(t)))
+        hint = ""
+        for regen in range(MAX_CHECKPOINT_REGEN_TRIES + 1):
+            with attribute("planner"):
+                tasks = planner.plan(
+                    prompt + (f"\n\nUser hint: {hint}" if hint else "")
+                )
+            # Normalize to Task objects with stable ids
+            out: list[Task] = []
+            for i, t in enumerate(tasks):
+                if isinstance(t, Task):
+                    t.id = i
+                    out.append(t)
+                else:
+                    out.append(Task(id=i, description=str(t)))
+
+            artifact, status = _apply_checkpoint(
+                handler,
+                CheckpointPrompt(
+                    stage="plan",
+                    artifact=out,
+                    rendered=render_plan(out),
+                    context={"prompt": prompt},
+                ),
+            )
+            if status == "approved":
+                return out
+            if status == "edited":
+                return artifact  # user-replaced task list
+            if status == "regenerate":
+                hint = artifact or ""
+                if regen >= MAX_CHECKPOINT_REGEN_TRIES:
+                    return out
+                continue
         return out
 
     g.add(PipelineNode(id="plan", run=planner_run, parallel=False, role="planner"))
@@ -165,8 +216,33 @@ def build_pipeline_graph(
     def architect_run(inputs: dict[str, Any]) -> dict[str, Any]:
         tasks: list[Task] = inputs["plan"]
         descriptions = [t.description for t in tasks]
-        with attribute("architect"):
-            architecture = architect.design(prompt, descriptions)
+        arch_hint = ""
+        architecture = None
+        for regen in range(MAX_CHECKPOINT_REGEN_TRIES + 1):
+            with attribute("architect"):
+                architecture = architect.design(
+                    prompt + (f"\n\nUser hint: {arch_hint}" if arch_hint else ""),
+                    descriptions,
+                )
+            artifact, status = _apply_checkpoint(
+                handler,
+                CheckpointPrompt(
+                    stage="architect",
+                    artifact=architecture,
+                    rendered=render_architecture(architecture),
+                    context={"prompt": prompt},
+                ),
+            )
+            if status == "approved":
+                break
+            if status == "edited":
+                architecture = artifact
+                break
+            if status == "regenerate":
+                arch_hint = artifact or ""
+                if regen >= MAX_CHECKPOINT_REGEN_TRIES:
+                    break
+                continue
 
         # Spawn one dev_<i> per task; each feeds qa+critic via the inline retry.
         # Done as a Replan so the executor schedules them in the next layer.
@@ -331,6 +407,7 @@ def run_pipeline_dag(
     save_path: str = "output/session_log.json",
     on_node_start=None,
     on_node_finish=None,
+    checkpoint_handler: CheckpointHandler | None = None,
 ) -> dict[str, Any]:
     """Execute the DAG pipeline and write the same output artifacts as the
     linear orchestrator (final_program.py, test_program.py, README.md,
@@ -366,6 +443,7 @@ def run_pipeline_dag(
         test_generator=test_generator,
         documenter=documenter,
         shared_context=shared_context,
+        checkpoint_handler=checkpoint_handler or get_handler_from_env(),
     )
 
     result = graph.execute(

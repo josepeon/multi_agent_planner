@@ -21,11 +21,58 @@ from agents.planner import PlannerAgent
 from agents.qa import QAAgent
 from agents.test_generator import TestGeneratorAgent
 from core import cost_tracker
+from core.checkpoints import (
+    ApproveDecision,
+    AutoApproveHandler,
+    CheckpointHandler,
+    CheckpointPrompt,
+    EditDecision,
+    RegenerateDecision,
+    get_handler_from_env,
+    render_architecture,
+    render_plan,
+)
 from core.cost_tracker import attribute, begin_run
 from core.memory import Memory
 from core.shared_context import SharedContext, get_shared_context, reset_shared_context
 from core.task_schema import Task
 from core.test_runner import render_summary, run_generated_tests, write_result_log
+
+
+# Max times we re-run an agent on a single Regenerate decision before giving up
+# and accepting whatever was produced. Prevents an infinite loop if the user
+# keeps hitting regenerate forever.
+MAX_CHECKPOINT_REGEN_TRIES = 3
+
+
+def _run_checkpoint(
+    handler: CheckpointHandler,
+    stage: str,
+    artifact,
+    rendered: str,
+    context: dict | None = None,
+) -> tuple[object, str]:
+    """Surface ``artifact`` to ``handler`` and return (artifact_or_replacement, status).
+
+    ``status`` is one of:
+      - "approved": handler accepted as-is
+      - "edited":   handler returned a replacement; first element is the new artifact
+      - "regenerate": handler asked the producer to retry; first element is a hint (str or None)
+    """
+    prompt = CheckpointPrompt(
+        stage=stage,
+        artifact=artifact,
+        rendered=rendered,
+        context=context or {},
+    )
+    decision = handler.handle(prompt)
+    if isinstance(decision, ApproveDecision):
+        return artifact, "approved"
+    if isinstance(decision, EditDecision):
+        return decision.new_artifact, "edited"
+    if isinstance(decision, RegenerateDecision):
+        return decision.hint, "regenerate"
+    return artifact, "approved"
 
 # Initialize agents
 planner: PlannerAgent = PlannerAgent()
@@ -113,7 +160,11 @@ def develop_with_retry(task: Task, max_retries: int = MAX_RETRIES) -> dict[str, 
 
 
 def run_pipeline(
-    task: Task, save_path: str = "output/session_log.json", *, use_dag: bool | None = None
+    task: Task,
+    save_path: str = "output/session_log.json",
+    *,
+    use_dag: bool | None = None,
+    checkpoint_handler: CheckpointHandler | None = None,
 ) -> str:
     """
     Run the full multi-agent code generation pipeline.
@@ -124,10 +175,16 @@ def run_pipeline(
         use_dag: If True, dispatch to the DAG-based orchestrator
             (parallel module development, mid-run replanning).
             If None, honor the USE_DAG_PIPELINE env var; default False.
+        checkpoint_handler: Optional human-in-the-loop handler. If None,
+            honors CHECKPOINT_MODE env (default: auto-approve, equivalent to
+            pre-checkpoint behavior).
 
     Returns:
         The final generated code as a string
     """
+    if checkpoint_handler is None:
+        checkpoint_handler = get_handler_from_env()
+
     if use_dag is None:
         use_dag = os.environ.get("USE_DAG_PIPELINE", "").strip().lower() in {
             "1", "true", "yes", "on",
@@ -136,7 +193,9 @@ def run_pipeline(
         from core.orchestrator_dag import run_pipeline_dag
 
         prompt = task if isinstance(task, str) else task.description
-        result = run_pipeline_dag(prompt, save_path=save_path)
+        result = run_pipeline_dag(
+            prompt, save_path=save_path, checkpoint_handler=checkpoint_handler
+        )
         return result["final_code"]
 
     # Reset shared context and cost tracker for new session
@@ -150,8 +209,33 @@ def run_pipeline(
     # Store the original prompt before task variable gets reassigned
     original_prompt = task.description
 
-    with attribute("planner"):
-        tasks = planner.plan(original_prompt)
+    # Planner stage (with optional human checkpoint)
+    plan_hint = ""
+    for regen in range(MAX_CHECKPOINT_REGEN_TRIES + 1):
+        with attribute("planner"):
+            tasks = planner.plan(
+                original_prompt + (f"\n\nUser hint: {plan_hint}" if plan_hint else "")
+            )
+
+        artifact, status = _run_checkpoint(
+            checkpoint_handler,
+            "plan",
+            tasks,
+            render_plan(tasks),
+            context={"prompt": original_prompt},
+        )
+        if status == "approved":
+            break
+        if status == "edited":
+            tasks = artifact  # user replaced the plan
+            break
+        if status == "regenerate":
+            plan_hint = artifact or ""
+            if regen >= MAX_CHECKPOINT_REGEN_TRIES:
+                print("  Reached max regenerate attempts on plan; accepting last output.")
+                break
+            continue
+
     memory.set("last_tasks", tasks)
 
     print("PLANNING STAGE")
@@ -168,9 +252,35 @@ def run_pipeline(
     print("ARCHITECTURE STAGE")
     print(f"{'='*60}")
     task_descriptions = [t.description if isinstance(t, Task) else t for t in tasks]
-    with attribute("architect"):
-        architecture = architect.design(original_prompt, task_descriptions)
-    print(architect.get_design_summary())
+    arch_hint = ""
+    for regen in range(MAX_CHECKPOINT_REGEN_TRIES + 1):
+        with attribute("architect"):
+            architecture = architect.design(
+                original_prompt
+                + (f"\n\nUser hint: {arch_hint}" if arch_hint else ""),
+                task_descriptions,
+            )
+
+        artifact, status = _run_checkpoint(
+            checkpoint_handler,
+            "architect",
+            architecture,
+            render_architecture(architecture),
+            context={"prompt": original_prompt},
+        )
+        if status == "approved":
+            break
+        if status == "edited":
+            architecture = artifact  # user-edited replacement
+            break
+        if status == "regenerate":
+            arch_hint = artifact or ""
+            if regen >= MAX_CHECKPOINT_REGEN_TRIES:
+                print("  Reached max regenerate attempts on architecture; accepting last output.")
+                break
+            continue
+
+    print(architect.get_design_summary() if hasattr(architect, "get_design_summary") else str(architecture))
 
     session_log = {"prompt": original_prompt, "architecture": architecture.description, "tasks": []}
 

@@ -35,6 +35,7 @@ Multi-Agent Planner is an intelligent code generation system that orchestrates *
 | Feature | Description |
 |---------|-------------|
 |  **Free by Default** | Uses Groq's free Llama 3.3 70B API with auto-fallback to backup models |
+|  **DAG Pipeline (opt-in)** | Replace the linear pipeline with a dependency graph that develops independent modules in parallel and supports mid-run replanning (`USE_DAG_PIPELINE=1`) |
 |  **Architecture-First** | Architect agent creates high-level design before any code is written |
 |  **Smart Retry** | Failed tasks retry up to 3x with critic feedback for self-healing |
 |  **Shared Context** | Agents share knowledge of defined classes/functions via AST analysis |
@@ -164,7 +165,7 @@ python -m pytest tests/ -v
 # Run with coverage
 python -m pytest tests/ --cov=agents --cov=core
 
-# 125 tests covering agents, core modules, sandbox, integration, test execution, cache, and cost tracking
+# 138 tests covering agents, core modules, sandbox, integration, test execution, cache, cost tracking, and DAG executor
 ```
 
 ---
@@ -229,7 +230,7 @@ multi_agent_planner/
 │   ├── app.py                 # Flask server with rate limiting
 │   ├── openapi.yml            # OpenAPI 3.0 specification
 │   └── templates/index.html   # Web UI
-├── tests/                     # Test Suite (125 tests)
+├── tests/                     # Test Suite (138 tests)
 │   ├── test_agents.py         # Agent unit tests
 │   └── test_core.py           # Core module tests
 ├── .github/workflows/         # CI/CD
@@ -366,7 +367,7 @@ output/project/
 | **Web Framework** | Flask with rate limiting |
 | **API Docs** | OpenAPI 3.0 / Swagger UI |
 | **Code Analysis** | AST (Abstract Syntax Tree) |
-| **Testing** | pytest (125 tests) |
+| **Testing** | pytest (138 tests) |
 | **CI/CD** | GitHub Actions |
 | **Containerization** | Docker + Docker Compose |
 | **Concurrency** | ThreadPoolExecutor |

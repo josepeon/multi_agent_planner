@@ -8,6 +8,7 @@ Supports parallel execution of independent tasks using ThreadPoolExecutor.
 """
 
 import json
+import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
@@ -111,17 +112,33 @@ def develop_with_retry(task: Task, max_retries: int = MAX_RETRIES) -> dict[str, 
     }
 
 
-def run_pipeline(task: Task, save_path: str = "output/session_log.json") -> str:
+def run_pipeline(
+    task: Task, save_path: str = "output/session_log.json", *, use_dag: bool | None = None
+) -> str:
     """
     Run the full multi-agent code generation pipeline.
 
     Args:
         task: The Task object containing the user's request
         save_path: Path to save the session log JSON
+        use_dag: If True, dispatch to the DAG-based orchestrator
+            (parallel module development, mid-run replanning).
+            If None, honor the USE_DAG_PIPELINE env var; default False.
 
     Returns:
         The final generated code as a string
     """
+    if use_dag is None:
+        use_dag = os.environ.get("USE_DAG_PIPELINE", "").strip().lower() in {
+            "1", "true", "yes", "on",
+        }
+    if use_dag:
+        from core.orchestrator_dag import run_pipeline_dag
+
+        prompt = task if isinstance(task, str) else task.description
+        result = run_pipeline_dag(prompt, save_path=save_path)
+        return result["final_code"]
+
     # Reset shared context and cost tracker for new session
     reset_shared_context()
     global shared_context

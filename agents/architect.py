@@ -14,6 +14,7 @@ This gives the Developer agent a blueprint to follow.
 import json
 
 from core.llm_provider import BaseLLMClient, get_llm_client
+from core.memory_store import UserMemory
 from core.shared_context import Architecture, SharedContext, get_shared_context
 
 
@@ -23,11 +24,19 @@ class ArchitectAgent:
     temperature: float
     client: BaseLLMClient
     shared_context: SharedContext
+    user_memory: UserMemory | None
 
-    def __init__(self, temperature: float = 0.2) -> None:
+    def __init__(
+        self,
+        temperature: float = 0.2,
+        user_memory: UserMemory | None = None,
+    ) -> None:
         self.temperature = temperature
         self.client = get_llm_client(temperature=temperature)
         self.shared_context = get_shared_context()
+        # Lazy: if the caller didn't supply one, instantiate a default-backed
+        # UserMemory. The default backend is JSON-on-disk; no external deps.
+        self.user_memory = user_memory if user_memory is not None else UserMemory()
 
     def design(self, user_prompt: str, tasks: list[str]) -> Architecture:
         """
@@ -63,10 +72,25 @@ RULES:
 4. Make dependencies clear - what depends on what
 5. Output ONLY valid JSON, no markdown, no explanation"""
 
+        # Pull any recorded user preferences relevant to this prompt. Empty
+        # string if no UserMemory was supplied or no entries matched.
+        preferences_block = ""
+        if self.user_memory is not None:
+            remembered = self.user_memory.render(
+                query=user_prompt + " " + tasks_str,
+                k=5,
+            )
+            if remembered:
+                preferences_block = (
+                    "\n\nRemembered preferences and lessons from prior runs "
+                    "— honor these unless they conflict with the current "
+                    "request:\n" + remembered + "\n"
+                )
+
         user_message = f"""Project: {user_prompt}
 
 Planned Tasks:
-{tasks_str}
+{tasks_str}{preferences_block}
 
 Design the architecture:"""
 

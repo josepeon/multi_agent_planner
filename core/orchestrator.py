@@ -33,6 +33,7 @@ from core.checkpoints import (
     render_plan,
 )
 from core.events import emit as emit_event, get_bus
+from core.memory_store import ProjectMemory, project_id_for
 from core.cost_tracker import attribute, begin_run
 from core.memory import Memory
 from core.shared_context import SharedContext, get_shared_context, reset_shared_context
@@ -219,6 +220,11 @@ def run_pipeline(
     # Store the original prompt before task variable gets reassigned
     original_prompt = task.description
 
+    # Per-project memory keyed by stable hash of the prompt. Architects can
+    # already read user-level memory; project memory persists decisions from
+    # this run for future runs that revisit the same project.
+    project_mem = ProjectMemory(project_id=project_id_for(original_prompt))
+
     run_start_ts = __import__("time").time()
     emit_event(job_id, "run_started", {"prompt": original_prompt, "mode": "linear"})
     emit_event(job_id, "stage_started", {"stage": "planner", "agent": "PlannerAgent"})
@@ -309,6 +315,10 @@ def run_pipeline(
         "ok": True,
         "summary": str(getattr(architecture, "description", architecture))[:200],
     })
+    # Record the architecture decision for future runs against this prompt
+    arch_text = str(getattr(architecture, "description", architecture))
+    if arch_text:
+        project_mem.remember(arch_text[:1000], kind="architecture", tags=["v1"])
 
     session_log = {"prompt": original_prompt, "architecture": architecture.description, "tasks": []}
 
@@ -340,6 +350,12 @@ def run_pipeline(
                 "description": task.description[:80],
                 "attempts": result["attempts"],
             })
+            # Persist the passing decision for future runs against this prompt
+            project_mem.remember(
+                f"Module passing on attempt {result['attempts']}: {task.description}",
+                kind="decision",
+                tags=[f"task_{task.id}"],
+            )
             # Store successful code in shared context for future tasks
             shared_context.add_generated_code(
                 task_id=task.id,

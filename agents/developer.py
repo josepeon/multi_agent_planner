@@ -9,8 +9,8 @@ Includes sandboxed execution for validation.
 import re
 from typing import Any
 
+from core.cache import BoundedCache
 from core.llm_provider import BaseLLMClient, get_llm_client
-from core.memory import Memory
 from core.sandbox import execute_code_safely
 from core.task_schema import Task
 
@@ -29,7 +29,7 @@ class DeveloperAgent:
     temperature: float
     sandbox_method: str
     client: BaseLLMClient
-    memory: Memory
+    memory: BoundedCache
 
     def __init__(self, temperature: float = 0.3, sandbox_method: str = "restricted") -> None:
         self.temperature = temperature
@@ -38,7 +38,13 @@ class DeveloperAgent:
         # core/sandbox.py docstring before using on a hosted deployment).
         self.sandbox_method = sandbox_method
         self.client = get_llm_client(temperature=temperature, max_tokens=2048)
-        self.memory = Memory("memory/developer_memory.json")
+        # Bounded LRU cache for response memoization. Cap = 1000 entries,
+        # TTL = 30 days. Loads any pre-existing legacy unbounded JSON file.
+        self.memory = BoundedCache(
+            "memory/developer_memory.json",
+            max_size=1000,
+            ttl_seconds=60 * 60 * 24 * 30,
+        )
 
     def write_code(
         self,

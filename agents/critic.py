@@ -6,8 +6,8 @@ Reviews code and provides constructive feedback for failed execution attempts.
 """
 
 
+from core.cache import BoundedCache
 from core.llm_provider import BaseLLMClient, get_llm_client
-from core.memory import Memory
 
 
 class CriticAgent:
@@ -15,7 +15,7 @@ class CriticAgent:
 
     temperature: float
     client: BaseLLMClient
-    memory: Memory
+    memory: BoundedCache
 
     def __init__(
         self,
@@ -24,7 +24,13 @@ class CriticAgent:
     ) -> None:
         self.temperature = temperature
         self.client = get_llm_client(temperature=temperature, max_tokens=1024)
-        self.memory = Memory(memory_path)
+        # Bounded LRU cache for review memoization. Same defaults as developer:
+        # cap = 1000 entries, TTL = 30 days. Loads legacy unbounded JSON cleanly.
+        self.memory = BoundedCache(
+            memory_path,
+            max_size=1000,
+            ttl_seconds=60 * 60 * 24 * 30,
+        )
 
     def review(self, task_description: str, code: str, error_message: str) -> str:
         """

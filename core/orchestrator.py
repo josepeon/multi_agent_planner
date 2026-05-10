@@ -32,6 +32,7 @@ from core.checkpoints import (
     render_architecture,
     render_plan,
 )
+from core.events import emit as emit_event, get_bus
 from core.cost_tracker import attribute, begin_run
 from core.memory import Memory
 from core.shared_context import SharedContext, get_shared_context, reset_shared_context
@@ -165,6 +166,7 @@ def run_pipeline(
     *,
     use_dag: bool | None = None,
     checkpoint_handler: CheckpointHandler | None = None,
+    job_id: str | None = None,
 ) -> str:
     """
     Run the full multi-agent code generation pipeline.
@@ -194,9 +196,17 @@ def run_pipeline(
 
         prompt = task if isinstance(task, str) else task.description
         result = run_pipeline_dag(
-            prompt, save_path=save_path, checkpoint_handler=checkpoint_handler
+            prompt,
+            save_path=save_path,
+            checkpoint_handler=checkpoint_handler,
+            job_id=job_id,
         )
         return result["final_code"]
+
+    # Linear pipeline below. job_id defaults to "_local" if not provided —
+    # events still emit, just nobody is listening.
+    if job_id is None:
+        job_id = "_local"
 
     # Reset shared context and cost tracker for new session
     reset_shared_context()
@@ -208,6 +218,10 @@ def run_pipeline(
 
     # Store the original prompt before task variable gets reassigned
     original_prompt = task.description
+
+    run_start_ts = __import__("time").time()
+    emit_event(job_id, "run_started", {"prompt": original_prompt, "mode": "linear"})
+    emit_event(job_id, "stage_started", {"stage": "planner", "agent": "PlannerAgent"})
 
     # Planner stage (with optional human checkpoint)
     plan_hint = ""
@@ -237,6 +251,13 @@ def run_pipeline(
             continue
 
     memory.set("last_tasks", tasks)
+    emit_event(job_id, "stage_finished", {
+        "stage": "planner",
+        "agent": "PlannerAgent",
+        "ok": True,
+        "summary": f"{len(tasks)} module(s)",
+        "tasks": [t.description if isinstance(t, Task) else str(t) for t in tasks],
+    })
 
     print("PLANNING STAGE")
     for idx, t in enumerate(tasks, 1):
@@ -251,6 +272,7 @@ def run_pipeline(
     print(f"\n{'='*60}")
     print("ARCHITECTURE STAGE")
     print(f"{'='*60}")
+    emit_event(job_id, "stage_started", {"stage": "architect", "agent": "ArchitectAgent"})
     task_descriptions = [t.description if isinstance(t, Task) else t for t in tasks]
     arch_hint = ""
     for regen in range(MAX_CHECKPOINT_REGEN_TRIES + 1):
@@ -281,6 +303,12 @@ def run_pipeline(
             continue
 
     print(architect.get_design_summary() if hasattr(architect, "get_design_summary") else str(architecture))
+    emit_event(job_id, "stage_finished", {
+        "stage": "architect",
+        "agent": "ArchitectAgent",
+        "ok": True,
+        "summary": str(getattr(architecture, "description", architecture))[:200],
+    })
 
     session_log = {"prompt": original_prompt, "architecture": architecture.description, "tasks": []}
 
@@ -307,6 +335,11 @@ def run_pipeline(
             passed_count += 1
             task.status = "complete"
             print(f"\n[OK] Task {task.id} PASSED (after {result['attempts']} attempt(s))")
+            emit_event(job_id, "task_passed", {
+                "task_id": task.id,
+                "description": task.description[:80],
+                "attempts": result["attempts"],
+            })
             # Store successful code in shared context for future tasks
             shared_context.add_generated_code(
                 task_id=task.id,
@@ -318,6 +351,11 @@ def run_pipeline(
             failed_count += 1
             task.status = "failed"
             print(f"\n[FAIL] Task {task.id} FAILED (after {result['attempts']} attempts)")
+            emit_event(job_id, "task_failed", {
+                "task_id": task.id,
+                "description": task.description[:80],
+                "attempts": result["attempts"],
+            })
             if critique:
                 print(f"\nFinal Critique:\n{critique}")
 
@@ -442,6 +480,14 @@ def run_pipeline(
     with open(save_path, "w") as f:
         json.dump(session_log, f, indent=2)
     memory.set("last_test_run", test_result.as_dict())
+
+    emit_event(job_id, "test_run", test_result.as_dict())
+    emit_event(job_id, "cost", cost_snapshot)
+    emit_event(job_id, "run_finished", {
+        "duration_s": __import__("time").time() - run_start_ts,
+        "ok": test_result.all_passed,
+    })
+    get_bus().end(job_id)
 
     return final_code
 

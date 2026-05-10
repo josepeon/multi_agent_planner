@@ -165,6 +165,35 @@
             color: var(--success);
         }
         
+        .timeline {
+            margin-top: 1rem;
+            border-top: 1px solid var(--separator);
+            padding-top: 1rem;
+            font-family: 'SF Mono', Menlo, monospace;
+            font-size: 0.85rem;
+            line-height: 1.6;
+            max-height: 360px;
+            overflow-y: auto;
+        }
+        .timeline:empty { display: none; }
+        .tl-event {
+            display: flex;
+            gap: 0.75rem;
+            padding: 0.25rem 0;
+            color: var(--text-secondary);
+        }
+        .tl-event .tl-time {
+            color: var(--text-tertiary);
+            min-width: 4.5em;
+        }
+        .tl-event .tl-tag {
+            color: var(--text);
+            font-weight: 600;
+            min-width: 9em;
+        }
+        .tl-event.tl-ok .tl-tag { color: var(--success); }
+        .tl-event.tl-fail .tl-tag { color: var(--error); }
+
         .status.failed {
             background: rgba(255, 69, 58, 0.15);
             color: var(--error);
@@ -357,6 +386,7 @@
                 <div class="spinner"></div>
                 <span>Generating code...</span>
             </div>
+            <div id="timeline" class="timeline"></div>
         </div>
         
         <div id="outputCard" class="card hidden">
@@ -431,28 +461,118 @@
                 }
                 
                 currentJobId = data.job_id;
-                pollStatus();
+                openStream(currentJobId);
             } catch (error) {
                 showError('Failed to start generation: ' + error.message);
             }
         }
-        
-        async function pollStatus() {
-            if (!currentJobId) return;
-            
+
+        // Live status via Server-Sent Events.
+        // The same endpoint replays the full event history on (re)connect, so
+        // a browser refresh mid-run picks up where it left off.
+        let eventSource = null;
+
+        function openStream(jobId) {
+            if (eventSource) { eventSource.close(); eventSource = null; }
+            const tl = document.getElementById('timeline');
+            tl.innerHTML = '';
+
+            eventSource = new EventSource(`/api/stream/${jobId}`);
+
+            const appendEvent = (tag, label, cls = '') => {
+                const ts = new Date().toLocaleTimeString([], { hour12: false });
+                const row = document.createElement('div');
+                row.className = 'tl-event ' + cls;
+                row.innerHTML = `<span class="tl-time">${ts}</span>` +
+                                `<span class="tl-tag">${tag}</span>` +
+                                `<span class="tl-label"></span>`;
+                row.querySelector('.tl-label').textContent = label;
+                tl.appendChild(row);
+                tl.scrollTop = tl.scrollHeight;
+            };
+
+            const setStatus = (text, cls = 'running') => {
+                const sm = document.getElementById('statusMessage');
+                sm.className = 'status ' + cls;
+                sm.innerHTML = cls === 'running'
+                    ? `<div class="spinner"></div><span>${text}</span>`
+                    : `<span>${text}</span>`;
+            };
+
+            const safe = (handler) => (e) => {
+                try { handler(JSON.parse(e.data)); } catch (err) {
+                    appendEvent('error', String(err), 'tl-fail');
+                }
+            };
+
+            eventSource.addEventListener('run_started', safe((d) => {
+                appendEvent('run', d.payload.mode + ' pipeline started');
+                setStatus('Generating code...');
+            }));
+            eventSource.addEventListener('stage_started', safe((d) => {
+                appendEvent(d.payload.stage, `${d.payload.agent} thinking...`);
+            }));
+            eventSource.addEventListener('stage_finished', safe((d) => {
+                const summary = d.payload.summary || 'done';
+                appendEvent(d.payload.stage, summary, d.payload.ok ? 'tl-ok' : 'tl-fail');
+            }));
+            eventSource.addEventListener('node_started', safe((d) => {
+                appendEvent(d.payload.role || d.payload.id, `node ${d.payload.id} started`);
+            }));
+            eventSource.addEventListener('node_finished', safe((d) => {
+                const cls = d.payload.status === 'success' ? 'tl-ok'
+                          : d.payload.status === 'failed'  ? 'tl-fail' : '';
+                const label = `${d.payload.id} ${d.payload.status} ` +
+                              `(${(d.payload.duration_s || 0).toFixed(2)}s, layer ${d.payload.layer})`;
+                appendEvent('node', label, cls);
+            }));
+            eventSource.addEventListener('task_passed', safe((d) => {
+                appendEvent('task', `#${d.payload.task_id} passed after ${d.payload.attempts} attempt(s)`, 'tl-ok');
+            }));
+            eventSource.addEventListener('task_failed', safe((d) => {
+                appendEvent('task', `#${d.payload.task_id} failed after ${d.payload.attempts} attempt(s)`, 'tl-fail');
+            }));
+            eventSource.addEventListener('test_run', safe((d) => {
+                const p = d.payload;
+                if (!p.ran) {
+                    appendEvent('tests', 'skipped: ' + (p.skip_reason || ''), '');
+                } else if (p.all_passed) {
+                    appendEvent('tests', `${p.passed}/${p.total} passed`, 'tl-ok');
+                } else {
+                    appendEvent('tests', `${p.passed} passed, ${p.failed} failed`, 'tl-fail');
+                }
+            }));
+            eventSource.addEventListener('cost', safe((d) => {
+                const t = d.payload.total || {};
+                appendEvent('cost',
+                    `$${(t.cost_usd || 0).toFixed(4)} — ${t.total_tokens || 0} tokens, ${t.calls || 0} call(s)`);
+            }));
+            eventSource.addEventListener('run_finished', safe((d) => {
+                const okCls = d.payload.ok ? 'completed' : 'failed';
+                const okMsg = d.payload.ok ? '✓ Generation complete' : '✗ Generation finished with failures';
+                setStatus(`${okMsg} (${(d.payload.duration_s || 0).toFixed(1)}s)`, okCls);
+                // Fetch the final code+tests+readme via the existing status endpoint
+                fetchFinalResult();
+            }));
+            eventSource.addEventListener('end', () => {
+                if (eventSource) { eventSource.close(); eventSource = null; }
+            });
+            eventSource.onerror = () => {
+                // Browser auto-reconnects; nothing to do unless we want to surface it.
+            };
+        }
+
+        async function fetchFinalResult() {
             try {
                 const response = await fetch(`/api/status/${currentJobId}`);
                 const data = await response.json();
-                
-                if (data.status === 'running') {
-                    setTimeout(pollStatus, 2000);
-                } else if (data.status === 'completed') {
+                if (data.status === 'completed') {
                     showResult(data.result);
                 } else if (data.status === 'failed') {
                     showError(data.error);
                 }
-            } catch (error) {
-                showError('Failed to check status: ' + error.message);
+            } catch (err) {
+                showError('Failed to fetch final result: ' + err.message);
             }
         }
         

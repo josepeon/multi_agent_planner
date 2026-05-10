@@ -23,11 +23,12 @@ from datetime import datetime
 from functools import wraps
 from threading import Lock, Thread
 
-from flask import Flask, jsonify, render_template, request, send_file
+from flask import Flask, Response, jsonify, render_template, request, send_file
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from core.events import get_bus, new_job_id
 from core.orchestrator import run_pipeline
 from core.task_schema import Task
 
@@ -185,8 +186,8 @@ def generate():
     if not description:
         return jsonify({'error': 'Description is required'}), 400
 
-    # Create a job ID
-    job_id = datetime.now().strftime('%Y%m%d_%H%M%S')
+    # Create a job ID — opaque short hash so SSE clients can subscribe by it
+    job_id = new_job_id()
 
     # Store job status
     jobs[job_id] = {
@@ -201,7 +202,11 @@ def generate():
     def run_generation():
         try:
             task = Task(id=0, description=description)
-            result = run_pipeline(task, save_path=f"output/session_{job_id}.json")
+            result = run_pipeline(
+                task,
+                save_path=f"output/session_{job_id}.json",
+                job_id=job_id,
+            )
 
             jobs[job_id]['status'] = 'completed'
             jobs[job_id]['result'] = {
@@ -217,6 +222,32 @@ def generate():
     thread.start()
 
     return jsonify({'job_id': job_id, 'status': 'running'})
+
+
+@app.route('/api/stream/<job_id>')
+def stream(job_id):
+    """Server-Sent Events stream of pipeline events for ``job_id``.
+
+    Subscribers receive the full event history (so reconnects are safe) and
+    then live events until the run signals end-of-stream.
+    """
+    import json as _json
+
+    def event_stream():
+        bus = get_bus()
+        # Heartbeat comment every ~15s prevents proxies from dropping idle conns.
+        for event in bus.subscribe(job_id, replay=True):
+            data = _json.dumps(event.to_dict())
+            yield f"event: {event.type}\nid: {event.seq}\ndata: {data}\n\n"
+        yield "event: end\ndata: {}\n\n"
+
+    headers = {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+        "X-Accel-Buffering": "no",  # nginx: don't buffer
+    }
+    return Response(event_stream(), headers=headers)
 
 
 @app.route('/api/status/<job_id>')

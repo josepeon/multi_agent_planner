@@ -40,6 +40,7 @@ from agents.planner import PlannerAgent
 from agents.qa import QAAgent
 from agents.test_generator import TestGeneratorAgent
 from core import cost_tracker
+from core.events import emit as emit_event, get_bus
 from core.checkpoints import (
     ApproveDecision,
     AutoApproveHandler,
@@ -408,6 +409,7 @@ def run_pipeline_dag(
     on_node_start=None,
     on_node_finish=None,
     checkpoint_handler: CheckpointHandler | None = None,
+    job_id: str | None = None,
 ) -> dict[str, Any]:
     """Execute the DAG pipeline and write the same output artifacts as the
     linear orchestrator (final_program.py, test_program.py, README.md,
@@ -422,6 +424,35 @@ def run_pipeline_dag(
 
     memory = Memory("output/memory.json")
     memory.set("last_prompt", prompt)
+
+    jid = job_id or "_local"
+    import time as _time
+
+    run_start_ts = _time.time()
+    emit_event(jid, "run_started", {"prompt": prompt, "mode": "dag"})
+
+    # Wrap user-provided callbacks: emit our events alongside the user's hook
+    def _wrap_start(node):
+        emit_event(jid, "node_started", {"id": node.id, "role": node.role})
+        if on_node_start:
+            try:
+                on_node_start(node)
+            except Exception:
+                pass
+
+    def _wrap_finish(result):
+        emit_event(jid, "node_finished", {
+            "id": result.node_id,
+            "status": result.status,
+            "duration_s": result.duration_seconds,
+            "layer": result.layer,
+            "error": result.error,
+        })
+        if on_node_finish:
+            try:
+                on_node_finish(result)
+            except Exception:
+                pass
 
     planner = PlannerAgent()
     architect = ArchitectAgent()
@@ -448,8 +479,8 @@ def run_pipeline_dag(
 
     result = graph.execute(
         max_workers=4,
-        on_node_start=on_node_start,
-        on_node_finish=on_node_finish,
+        on_node_start=_wrap_start,
+        on_node_finish=_wrap_finish,
     )
 
     integrate_out = (
@@ -516,6 +547,14 @@ def run_pipeline_dag(
 
     memory.set("last_test_run", test_run)
     memory.set("last_cost_report", cost_snapshot)
+
+    emit_event(jid, "test_run", test_run)
+    emit_event(jid, "cost", cost_snapshot)
+    emit_event(jid, "run_finished", {
+        "duration_s": _time.time() - run_start_ts,
+        "ok": test_run.get("all_passed", False),
+    })
+    get_bus().end(jid)
 
     return {
         "final_code": final_code,

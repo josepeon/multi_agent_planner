@@ -1,0 +1,37 @@
+# Starter eval corpus for the Multi-Agent Planner pipeline.
+# Each case is a single prompt the pipeline must handle, plus the rubrics
+# the resulting artifacts are graded against.
+#
+# Run with `python -m evals.run` (see scripts/eval if added).
+
+- id: cli_todo_click
+  prompt: Build a CLI todo app with click that supports add, remove, list, and mark-complete
+  rubrics: [compiles, tests_present, tests_pass, imports_click]
+
+- id: calculator
+  prompt: Create a simple calculator class with add, subtract, multiply, divide methods that handles division by zero
+  rubrics: [compiles, tests_present, tests_pass]
+
+- id: linked_list
+  prompt: Implement a singly linked list with insert, delete, search, and size methods
+  rubrics: [compiles, tests_present, tests_pass]
+
+- id: flask_hello_api
+  prompt: Build a minimal Flask API with one GET endpoint that returns JSON
+  rubrics: [compiles, tests_present, imports_flask]
+
+- id: counter_with_history
+  prompt: Build a counter class with increment, decrement, reset and a history log of recent changes
+  rubrics: [compiles, tests_present, tests_pass, imports_dataclasses]
+
+- id: word_frequency
+  prompt: Write a function that takes a string and returns a dict of word -> frequency, case-insensitive
+  rubrics: [compiles, tests_present, tests_pass]
+
+- id: fasta_parser
+  prompt: Build a minimal FASTA parser that reads a multi-record FASTA file and returns a list of (header, sequence) tuples
+  rubrics: [compiles, tests_present, tests_pass]
+
+- id: rate_limiter
+  prompt: Implement a token-bucket rate limiter class with acquire(n) and is_allowed methods
+  rubrics: [compiles, tests_present, tests_pass]

@@ -94,13 +94,98 @@ shared_context: SharedContext = get_shared_context()
 MAX_RETRIES: int = 3  # Number of times to retry failed tasks with critic feedback
 MULTI_FILE_OUTPUT: bool = True  # Whether to generate multi-file project structure
 
+# Best-of-N candidate generation. >1 generates N candidates per task in
+# parallel, picks the one that passes QA with the highest critic score.
+# Trades N× tokens for quality. Set via env or override at call-time.
+BEST_OF_N: int = int(os.environ.get("BEST_OF_N", "1"))
 
-def develop_with_retry(task: Task, max_retries: int = MAX_RETRIES) -> dict[str, Any]:
+
+def _develop_one_candidate(task, feedback, context_summary):
+    """Single develop+QA attempt. Used both standalone and inside best-of-N."""
+    context_message = (
+        f"\n\n## Context from previous tasks:\n{context_summary}"
+        if context_summary
+        else ""
+    )
+    with attribute("developer"):
+        if feedback:
+            code = developer.develop(task, feedback_message=feedback + context_message)
+        elif context_summary and context_summary != "No previous context. This is the first task.":
+            code = developer.develop(task, feedback_message=context_message)
+        else:
+            code = developer.develop(task)
+
+    with attribute("qa"):
+        qa_result = qa_checker.evaluate_code(code)
+    passed = qa_result.get('status') == 'passed'
+    return code, qa_result, passed
+
+
+def _best_of_n(task: Task, feedback, context_summary, n: int) -> dict[str, Any]:
+    """Generate N candidates in parallel, score with critic, keep best.
+
+    Trades cost for quality. A passing candidate beats a failing one even
+    if the failing one would have scored higher. Only the highest critic
+    score among passing candidates wins.
+    """
+    candidates: list[tuple[dict, dict, bool]] = []
+    with ThreadPoolExecutor(max_workers=min(n, 4)) as pool:
+        futures = [
+            pool.submit(_develop_one_candidate, task, feedback, context_summary)
+            for _ in range(n)
+        ]
+        for fut in as_completed(futures):
+            try:
+                candidates.append(fut.result())
+            except Exception as exc:
+                candidates.append(({"code": "", "error": str(exc)}, {}, False))
+
+    if not candidates:
+        return {"code": {"code": ""}, "qa_result": {}, "passed": False}
+
+    # Prefer passing candidates; score each with the critic.
+    passing = [c for c in candidates if c[2]]
+    pool_to_score = passing if passing else candidates
+
+    def _score(c):
+        code, _qa, _passed = c
+        code_str = code.get("code", "") if isinstance(code, dict) else str(code)
+        try:
+            with attribute("critic"):
+                return critic.score(task.description, code_str)
+        except Exception:
+            return 0.0
+
+    scored = [(_score(c), c) for c in pool_to_score]
+    scored.sort(key=lambda kv: -kv[0])
+    best_score, (best_code, best_qa, best_passed) = scored[0]
+    return {
+        "code": best_code,
+        "qa_result": best_qa,
+        "passed": best_passed,
+        "candidates": len(candidates),
+        "winning_score": best_score,
+    }
+
+
+def develop_with_retry(
+    task: Task,
+    max_retries: int = MAX_RETRIES,
+    best_of_n: int | None = None,
+) -> dict[str, Any]:
     """
     Develop code for a task with retry logic.
     If QA fails, get critic feedback and retry up to max_retries times.
     Uses shared context to provide awareness of already-defined code.
+
+    Args:
+        task: the task to develop
+        max_retries: retries on failure with critic feedback
+        best_of_n: if >1, generate N candidates per attempt and keep the
+            one the critic scores highest. Defaults to module-level BEST_OF_N.
     """
+    if best_of_n is None:
+        best_of_n = BEST_OF_N
     feedback = None
     best_code = None
     best_qa_result = None
@@ -111,24 +196,21 @@ def develop_with_retry(task: Task, max_retries: int = MAX_RETRIES) -> dict[str, 
 
     for attempt in range(max_retries):
         # Develop code (pass feedback and context from previous attempt if any)
-        context_message = f"\n\n## Context from previous tasks:\n{context_summary}" if context_summary else ""
-        with attribute("developer"):
-            if feedback:
-                full_feedback = feedback + context_message
-                code = developer.develop(task, feedback_message=full_feedback)
-            else:
-                if context_summary and context_summary != "No previous context. This is the first task.":
-                    code = developer.develop(task, feedback_message=context_message)
-                else:
-                    code = developer.develop(task)
-
-        print(f"\n  Generated Code (Attempt {attempt + 1}/{max_retries}):")
-        print(f"  {code}\n")
-
-        # Run QA
-        with attribute("qa"):
-            qa_result = qa_checker.evaluate_code(code)
-        passed = qa_result.get('status') == 'passed'
+        if best_of_n > 1:
+            bon = _best_of_n(task, feedback, context_summary, best_of_n)
+            code = bon["code"]
+            qa_result = bon["qa_result"]
+            passed = bon["passed"]
+            print(
+                f"\n  Best-of-{best_of_n} Attempt {attempt + 1}/{max_retries} "
+                f"(winning score {bon.get('winning_score', 0):.1f})"
+            )
+        else:
+            code, qa_result, passed = _develop_one_candidate(
+                task, feedback, context_summary
+            )
+            print(f"\n  Generated Code (Attempt {attempt + 1}/{max_retries}):")
+            print(f"  {code}\n")
 
         print(f"  QA Result: {'PASSED' if passed else 'FAILED'}")
 

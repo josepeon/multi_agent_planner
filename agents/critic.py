@@ -72,3 +72,43 @@ class CriticAgent:
             return result
         except Exception as e:
             return f"LLM API error: {str(e)}"
+
+    def score(self, task_description: str, code: str) -> float:
+        """Score code 0-10 on a best-of-N generation. Returns a float.
+
+        Used by core.orchestrator when BEST_OF_N>1: each candidate gets a
+        score, the highest-scoring one wins. The critic is asked to be
+        terse — we only need a number.
+        """
+        system_message = (
+            "You are a senior code reviewer. Score the following Python code "
+            "on a scale of 0-10 (10 = excellent) for correctness, clarity, "
+            "and idiomatic style relative to the task. Respond with ONLY the "
+            "number, nothing else."
+        )
+        user_message = (
+            f"Task: {task_description}\n\n"
+            f"Code:\n{code}\n\n"
+            f"Score (0-10):"
+        )
+        try:
+            raw = self.client.chat(
+                user_message=user_message,
+                system_message=system_message,
+                temperature=0.1,
+                max_tokens=8,
+            )
+        except Exception:
+            return 0.0
+
+        # Parse the first number out of the response; clamp to [0, 10].
+        import re
+
+        match = re.search(r"\d+(?:\.\d+)?", raw)
+        if not match:
+            return 0.0
+        try:
+            value = float(match.group())
+        except ValueError:
+            return 0.0
+        return max(0.0, min(10.0, value))

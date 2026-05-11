@@ -99,6 +99,31 @@ def _looks_runnable(test_code: str) -> tuple[bool, str | None]:
     return True, None
 
 
+_FROM_IMPORT_RE = re.compile(
+    r"^from\s+([a-zA-Z_][\w]*)\s+import\b", re.MULTILINE
+)
+
+
+def _extract_imported_module_names(test_code: str) -> set[str]:
+    """Pull module names out of ``from X import ...`` lines.
+
+    These are the names the test code expects to find on disk. The test
+    generator sometimes picks a project-specific name like ``calculator``
+    rather than ``final_program``; the runner needs to expose the program
+    under all of them.
+    """
+    return {match.group(1) for match in _FROM_IMPORT_RE.finditer(test_code)}
+
+
+# Names we never alias the program under (would shadow real packages
+# the tests legitimately import).
+_RESERVED_MODULE_NAMES = {
+    "pytest", "os", "sys", "json", "math", "random", "datetime", "typing",
+    "pathlib", "collections", "itertools", "functools", "abc",
+    "dataclasses", "enum", "re", "string", "unittest",
+}
+
+
 def run_generated_tests(
     program_code: str,
     test_code: str,
@@ -108,8 +133,12 @@ def run_generated_tests(
 ) -> TestRunResult:
     """Execute pytest on `test_code` against `program_code` in a temp dir.
 
-    The program is written under the importable name `program_filename` (stem
-    used as module name) so that tests can `from final_program import ...`.
+    The program is written under ``program_filename`` (stem used as module
+    name) so tests can ``from final_program import ...``. To survive cases
+    where the test generator picked a different module name (e.g. ``from
+    calculator import ...``), we *also* expose the same content under every
+    name the test imports from — so tests don't fail with ModuleNotFoundError
+    just because of an inconsistent name choice upstream.
 
     The function never raises on test failure — it returns a structured result.
     Genuine infrastructure failures (timeout, pytest missing) set `ran=True`
@@ -121,9 +150,20 @@ def run_generated_tests(
 
     module_stem = Path(program_filename).stem
 
+    # Aliases: names the test code imports from but don't match program_filename.
+    extra_modules = (
+        _extract_imported_module_names(test_code)
+        - {module_stem}
+        - _RESERVED_MODULE_NAMES
+    )
+
     with tempfile.TemporaryDirectory(prefix="map_test_run_") as tmp_str:
         tmp = Path(tmp_str)
         (tmp / program_filename).write_text(program_code)
+        # Alias the same content under each alternate module name. Using
+        # write rather than symlink keeps it portable across OS / filesystem.
+        for alias in extra_modules:
+            (tmp / f"{alias}.py").write_text(program_code)
         (tmp / "test_program.py").write_text(test_code)
 
         cmd = [

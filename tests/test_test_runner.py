@@ -72,10 +72,56 @@ class TestRealExecution:
         assert result.all_passed is False
         assert result.failed >= 1
 
+    def test_aliases_program_under_imported_module_name(self):
+        """When the test generator imports from a project-specific name
+        (e.g. 'calculator') instead of 'final_program', the runner should
+        still find the code. Mirrors the real bug surfaced in the MAP
+        smoke test."""
+        program = "def add(a, b):\n    return a + b\n"
+        tests = (
+            "from calculator import add\n\n"
+            "def test_add_positive():\n"
+            "    assert add(2, 3) == 5\n"
+        )
+        result = run_generated_tests(program, tests)
+        assert result.ran is True
+        assert result.all_passed is True
+        assert result.passed == 1
+
+    def test_multiple_import_names_all_aliased(self):
+        """If tests import from several names, all of them resolve."""
+        program = "def add(a, b):\n    return a + b\nVALUE = 42\n"
+        tests = (
+            "from calculator import add\n"
+            "from final_program import VALUE\n\n"
+            "def test_both():\n"
+            "    assert add(VALUE, 1) == 43\n"
+        )
+        result = run_generated_tests(program, tests)
+        assert result.ran is True
+        assert result.all_passed is True
+
+    def test_reserved_module_names_not_aliased(self):
+        """Aliasing must not shadow standard library imports."""
+        # 'json' is in the reserved list; an 'import json' in test_code
+        # should NOT cause us to clobber the real json module.
+        program = "def add(a, b):\n    return a + b\n"
+        tests = (
+            "import json\n"
+            "from final_program import add\n\n"
+            "def test_uses_json():\n"
+            "    payload = json.dumps({'sum': add(1, 2)})\n"
+            "    assert json.loads(payload) == {'sum': 3}\n"
+        )
+        result = run_generated_tests(program, tests)
+        assert result.ran is True
+        assert result.all_passed is True
+
     def test_collection_error_surfaces_as_error(self):
         program = "def add(a, b):\n    return a + b\n"
-        # Import that doesn't exist
-        tests = "from no_such_module import nope\n\ndef test_x():\n    assert nope() == 1\n"
+        # Import that doesn't exist AND isn't matched by aliasing
+        # (aliasing only fires for ``from X import ...``, not ``import X``)
+        tests = "import no_such_module\n\ndef test_x():\n    assert True\n"
         result = run_generated_tests(program, tests)
         assert result.ran is True
         assert result.all_passed is False

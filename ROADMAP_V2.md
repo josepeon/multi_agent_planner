@@ -297,3 +297,51 @@ Three improvements *should* reuse code from `self-improving-agent` rather than r
 - T3.4 (agent fine-tuning → MLX + LoRA + Groq-as-judge pipeline)
 
 Treat `self-improving-agent` as a library this project depends on, not a separate experiment.
+
+---
+
+## Implementation status (updated 2026-05-11)
+
+### Shipped ✅
+
+All 17 roadmap items above are landed on `main`. Tests: 60 → 315. Pushed
+to `github.com/josepeon/multi_agent_planner`.
+
+| Item | Commit | Notes |
+|---|---|---|
+| B1 generated tests are run | `65450e0` | new core/test_runner.py; +11 tests |
+| B2 sandbox honest | `edd7791` | crash_isolated rename + MAP_FORBID_CRASH_ISOLATED env |
+| B3 bounded cache | `bd624a8` | LRU + TTL; legacy JSON loads cleanly |
+| T2.7 cost & token tracking | `68e0185` | per-agent attribution via contextvar |
+| T1.1 DAG pipeline | `02d843c` | parallel module dev + Replan |
+| T1.2 HITL checkpoints | `ade68f1` | plan + architect gates |
+| T2.3 SSE streaming UI | `a5c21fa` | live timeline replaces polling |
+| T1.3 project + user memory | `4cb4158` | JSON default, Chroma optional |
+| T2.1 Researcher agent | `edf1cad` | Tavily/Brave; no-op without key |
+| T2.2 cloud sandbox via E2B | `a9ebe37` | lazy import, key-gated |
+| T2.5 best-of-N | `4f908be` | passing > failing; highest-score wins |
+| T2.4 Deployer agent | `7d9cc4e` | Railway/Streamlit/Vercel/Modal |
+| T2.6 modify-existing-codebase | `2981ca0` | repo ingest → structured diff |
+| T3.1 model routing | `3f84a59` | per-agent role + MODEL_FOR_<role> env |
+| T3.2 eval harness | `78deedb` | starter corpus in evals/corpus.yml |
+| T3.3 multi-language output | `29b61db` | Python full, TypeScript scaffold |
+| T3.4 agent fine-tuning bridge | `27354d7` | interaction log + scripts/export_to_sia.py |
+
+Plus three post-roadmap follow-ups:
+
+- **SIA installable** (`ec5a702`) — `pip install -e '.[sia]'` works; MAP imports SIA's modules directly.
+- **cost_tracker dedup** (`1dd8059`) — MAP's `core/cost_tracker.py` shrunk 285→80 LOC; canonical implementation lives in SIA.
+- **test-runner alias fix** (`1dd8059`) — TestGenerator's `from <project> import …` now resolves even when the runner writes the program as `final_program.py`.
+
+### Still to do 🔲
+
+#### One-time human actions
+- **Cut SIA v1.0 tag** — once SIA stabilises, bump MAP's `[sia]` extra to pin the tag instead of `@main` so a breaking SIA change can't accidentally cascade.
+- **End-to-end smoke test of `--run distill`** — `scripts/export_to_sia.py --run distill` is tested with stubs; running it against a real interaction-log corpus would catch issues the unit tests can't.
+
+#### Follow-ups (cross-repo dedup, low-risk)
+- **`interaction_log.py` next** — MAP's version is richer than SIA's `logging/` subsystem. Upstreaming the MAP version (mirroring the cost_tracker dedup) would let SIA + Twin reuse it.
+- **Eval harness convergence** — MAP's evaluates pipeline artifacts; SIA's evaluates LLM responses. Different scopes, probably stays split, but worth a re-read in 3 months once both are battle-tested.
+
+#### Deferred (paid services — none here)
+- No paid integrations are pending for MAP. T2.1 (Tavily/Brave), T2.2 (E2B) are key-gated and no-op without a key — installing keys is the user's call when budgets allow.

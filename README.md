@@ -168,7 +168,7 @@ python -m pytest tests/ -v
 # Run with coverage
 python -m pytest tests/ --cov=agents --cov=core
 
-# 185 tests covering agents, core modules, sandbox, integration, test execution, cache, cost tracking, and DAG executor
+# 205 tests covering agents, core modules, sandbox, integration, test execution, cache, cost tracking, and DAG executor
 ```
 
 ---
@@ -233,7 +233,7 @@ multi_agent_planner/
 │   ├── app.py                 # Flask server with rate limiting
 │   ├── openapi.yml            # OpenAPI 3.0 specification
 │   └── templates/index.html   # Web UI
-├── tests/                     # Test Suite (185 tests)
+├── tests/                     # Test Suite (205 tests)
 │   ├── test_agents.py         # Agent unit tests
 │   └── test_core.py           # Core module tests
 ├── .github/workflows/         # CI/CD
@@ -284,6 +284,7 @@ multi_agent_planner/
 | `restricted` (default) | **Real security isolation.** AST allowlist blocks network, file I/O, subprocess, `eval`/`exec`, dangerous dunders. Safe for untrusted input. | None |
 | `docker` | **Strongest isolation.** Container with no network, read-only FS, memory + pid limits. | Docker on host |
 | `crash_isolated` (alias: `subprocess`) | **Crash isolation only — NOT a security boundary.** A subprocess can read/write the host filesystem, open sockets, and exec arbitrary binaries. Used as a fallback when restricted-mode code requires `input()` / GUI / `eval`. Hosted deployments serving untrusted input should disable it (see below). | None |
+| `cloud` | **Hosted ephemeral container via E2B.** Real isolation, real network, real filesystem — the only mode that can validate code that does I/O (scrapers, API clients, DB code). | `E2B_API_KEY` + `pip install e2b-code-interpreter` |
 
 **Disabling the crash-isolated fallback in production**
 
@@ -370,7 +371,7 @@ output/project/
 | **Web Framework** | Flask with rate limiting |
 | **API Docs** | OpenAPI 3.0 / Swagger UI |
 | **Code Analysis** | AST (Abstract Syntax Tree) |
-| **Testing** | pytest (185 tests) |
+| **Testing** | pytest (205 tests) |
 | **CI/CD** | GitHub Actions |
 | **Containerization** | Docker + Docker Compose |
 | **Concurrency** | ThreadPoolExecutor |

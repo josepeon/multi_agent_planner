@@ -65,6 +65,7 @@ class ExecutionMethod(Enum):
     RESTRICTED = "restricted"            # RestrictedPython, real security
     DOCKER = "docker"                    # Full container isolation
     CRASH_ISOLATED = "crash_isolated"    # Subprocess: crash isolation only
+    CLOUD = "cloud"                      # Hosted sandbox (E2B); real I/O allowed
 
     @classmethod
     def _missing_(cls, value):  # type: ignore[override]
@@ -446,6 +447,91 @@ def execute_subprocess(code: str, config: SandboxConfig) -> ExecutionResult:
 
 
 # ============================================
+# Cloud Execution (E2B)
+# ============================================
+
+def execute_cloud(code: str, config: SandboxConfig) -> ExecutionResult:
+    """Run code in a hosted E2B sandbox.
+
+    Real isolation: ephemeral container, real filesystem, real network. The
+    only mode that can credibly test code that does I/O (scrapers, API
+    clients, DB code). Set ``E2B_API_KEY`` in the env to activate.
+
+    Lazy-imports ``e2b_code_interpreter``; if not installed or no key, returns
+    a clear error result so callers can fall back.
+    """
+    import time
+
+    if not os.environ.get("E2B_API_KEY"):
+        return ExecutionResult(
+            success=False,
+            output="",
+            error=(
+                "Cloud sandbox requires E2B_API_KEY in the environment. "
+                "Get a key at https://e2b.dev/. Falling back is the caller's "
+                "responsibility."
+            ),
+            method_used="cloud_unconfigured",
+        )
+
+    try:
+        from e2b_code_interpreter import Sandbox  # type: ignore
+    except ImportError:
+        return ExecutionResult(
+            success=False,
+            output="",
+            error=(
+                "Cloud sandbox requires the e2b-code-interpreter package. "
+                "Install with: pip install e2b-code-interpreter"
+            ),
+            method_used="cloud_unconfigured",
+        )
+
+    start_time = time.time()
+    try:
+        with Sandbox(timeout=config.timeout) as sandbox:
+            execution = sandbox.run_code(code, timeout=config.timeout)
+            stdout = "".join(execution.logs.stdout) if execution.logs.stdout else ""
+            stderr = "".join(execution.logs.stderr) if execution.logs.stderr else ""
+
+            elapsed = time.time() - start_time
+            output = stdout[: config.max_output_size]
+
+            if execution.error:
+                return ExecutionResult(
+                    success=False,
+                    output=output,
+                    error=str(execution.error)[: config.max_output_size],
+                    execution_time=elapsed,
+                    method_used="cloud",
+                )
+
+            if stderr and not stdout:
+                return ExecutionResult(
+                    success=False,
+                    output=output,
+                    error=stderr[: config.max_output_size],
+                    execution_time=elapsed,
+                    method_used="cloud",
+                )
+
+            return ExecutionResult(
+                success=True,
+                output=output,
+                execution_time=elapsed,
+                method_used="cloud",
+            )
+    except Exception as exc:  # noqa: BLE001
+        return ExecutionResult(
+            success=False,
+            output="",
+            error=f"E2B sandbox error: {type(exc).__name__}: {exc}",
+            execution_time=time.time() - start_time,
+            method_used="cloud",
+        )
+
+
+# ============================================
 # Main Entry Point
 # ============================================
 
@@ -484,6 +570,7 @@ def execute_code_safely(
         ExecutionMethod.RESTRICTED: execute_restricted,
         ExecutionMethod.DOCKER: execute_docker,
         ExecutionMethod.CRASH_ISOLATED: execute_subprocess,
+        ExecutionMethod.CLOUD: execute_cloud,
     }
 
     # Honor the explicit forbid-flag for crash-isolated execution.

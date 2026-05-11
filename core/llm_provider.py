@@ -31,12 +31,50 @@ from dataclasses import dataclass, field
 
 from dotenv import load_dotenv
 
-from core.cost_tracker import record_usage
+from core.cost_tracker import _current_role, record_usage
+from core.interaction_log import record as record_interaction
 
 load_dotenv()
 
 # Set up logging
 logger = logging.getLogger(__name__)
+
+
+def _log_interaction(
+    provider: str,
+    model: str,
+    messages: list[dict],
+    response: str,
+    prompt_tokens: int,
+    completion_tokens: int,
+) -> None:
+    """Record an interaction for fine-tuning, attributed to the current role.
+
+    No-op if INTERACTION_LOG_PATH isn't set (interaction logging is opt-in).
+    Pulls role from the cost_tracker contextvar set at agent invocation time.
+    """
+    role = _current_role.get() or "unknown"
+    system_message = ""
+    user_message = ""
+    for msg in messages:
+        if msg.get("role") == "system":
+            system_message = msg.get("content", "")
+        elif msg.get("role") == "user":
+            user_message = msg.get("content", "")
+    try:
+        record_interaction(
+            role=role,
+            provider=provider,
+            model=model,
+            system_message=system_message,
+            user_message=user_message,
+            response=response,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+        )
+    except Exception:
+        # Logging must never break the pipeline
+        pass
 
 
 @dataclass
@@ -124,14 +162,16 @@ class OpenAIClient(BaseLLMClient):
             max_tokens=max_tokens or self.config.max_tokens,
         )
         usage = getattr(response, "usage", None)
+        content = response.choices[0].message.content.strip()
+        pt = getattr(usage, "prompt_tokens", 0) or 0 if usage else 0
+        ct = getattr(usage, "completion_tokens", 0) or 0 if usage else 0
         if usage is not None:
             record_usage(
-                provider="openai",
-                model=self.config.model,
-                prompt_tokens=getattr(usage, "prompt_tokens", 0) or 0,
-                completion_tokens=getattr(usage, "completion_tokens", 0) or 0,
+                provider="openai", model=self.config.model,
+                prompt_tokens=pt, completion_tokens=ct,
             )
-        return response.choices[0].message.content.strip()
+        _log_interaction("openai", self.config.model, messages, content, pt, ct)
+        return content
 
 
 class GroqClient(BaseLLMClient):
@@ -215,14 +255,16 @@ class GroqClient(BaseLLMClient):
                     max_tokens=max_tokens or self.config.max_tokens,
                 )
                 usage = getattr(response, "usage", None)
+                content = response.choices[0].message.content.strip()
+                pt = getattr(usage, "prompt_tokens", 0) or 0 if usage else 0
+                ct = getattr(usage, "completion_tokens", 0) or 0 if usage else 0
                 if usage is not None:
                     record_usage(
-                        provider="groq",
-                        model=self.current_model,
-                        prompt_tokens=getattr(usage, "prompt_tokens", 0) or 0,
-                        completion_tokens=getattr(usage, "completion_tokens", 0) or 0,
+                        provider="groq", model=self.current_model,
+                        prompt_tokens=pt, completion_tokens=ct,
                     )
-                return response.choices[0].message.content.strip()
+                _log_interaction("groq", self.current_model, messages, content, pt, ct)
+                return content
 
             except Exception as e:
                 error_str = str(e)
@@ -421,14 +463,16 @@ class OpenRouterClient(BaseLLMClient):
             max_tokens=max_tokens or self.config.max_tokens,
         )
         usage = getattr(response, "usage", None)
+        content = response.choices[0].message.content.strip()
+        pt = getattr(usage, "prompt_tokens", 0) or 0 if usage else 0
+        ct = getattr(usage, "completion_tokens", 0) or 0 if usage else 0
         if usage is not None:
             record_usage(
-                provider="openrouter",
-                model=self.config.model,
-                prompt_tokens=getattr(usage, "prompt_tokens", 0) or 0,
-                completion_tokens=getattr(usage, "completion_tokens", 0) or 0,
+                provider="openrouter", model=self.config.model,
+                prompt_tokens=pt, completion_tokens=ct,
             )
-        return response.choices[0].message.content.strip()
+        _log_interaction("openrouter", self.config.model, messages, content, pt, ct)
+        return content
 
 
 # Provider registry

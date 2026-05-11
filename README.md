@@ -44,6 +44,10 @@ Multi-Agent Planner is an intelligent code generation system that orchestrates *
 |  **Best-of-N Generation** | `BEST_OF_N=3` generates N candidates per task in parallel, scores with the critic, keeps best — trades cost for quality |
 |  **Modify Existing Codebases** | Point at a local directory or git URL and produce a ModificationPlan (create/modify/delete file changes); review-then-apply, dry-run by default |
 |  **Deployer Agent** | Auto-picks Railway / Streamlit Cloud / Vercel / Modal based on detected framework; emits config files; deploys only when credentials are present and dry_run=False |
+|  **Per-Agent Model Routing** | Different agents use different models — 70B for reasoning, 8B for cheap roles. Override via `MODEL_FOR_<role>` env or `config/model_routing.yml` |
+|  **Eval Harness** | Rubric-based scoring on pipeline artifacts; 8-case starter corpus in `evals/corpus.yml`; measure pipeline improvements quantitatively |
+|  **Multi-Language Output** | `LANGUAGE=typescript` swaps Developer / TestGenerator prompts to target TypeScript (Python remains the default and fully supported) |
+|  **Fine-Tuning Pipeline** | Optional `INTERACTION_LOG_PATH` captures every LLM call to JSONL; `scripts/export_to_sia.py` converts logs to self-improving-agent's training format |
 |  **Architecture-First** | Architect agent creates high-level design before any code is written |
 |  **Smart Retry** | Failed tasks retry up to 3x with critic feedback for self-healing |
 |  **Shared Context** | Agents share knowledge of defined classes/functions via AST analysis |
@@ -173,7 +177,7 @@ python -m pytest tests/ -v
 # Run with coverage
 python -m pytest tests/ --cov=agents --cov=core
 
-# 251 tests covering agents, core modules, sandbox, integration, test execution, cache, cost tracking, and DAG executor
+# 312 tests covering agents, core modules, sandbox, integration, test execution, cache, cost tracking, and DAG executor
 ```
 
 ---
@@ -238,7 +242,7 @@ multi_agent_planner/
 │   ├── app.py                 # Flask server with rate limiting
 │   ├── openapi.yml            # OpenAPI 3.0 specification
 │   └── templates/index.html   # Web UI
-├── tests/                     # Test Suite (251 tests)
+├── tests/                     # Test Suite (312 tests)
 │   ├── test_agents.py         # Agent unit tests
 │   └── test_core.py           # Core module tests
 ├── .github/workflows/         # CI/CD
@@ -376,7 +380,7 @@ output/project/
 | **Web Framework** | Flask with rate limiting |
 | **API Docs** | OpenAPI 3.0 / Swagger UI |
 | **Code Analysis** | AST (Abstract Syntax Tree) |
-| **Testing** | pytest (251 tests) |
+| **Testing** | pytest (312 tests) |
 | **CI/CD** | GitHub Actions |
 | **Containerization** | Docker + Docker Compose |
 | **Concurrency** | ThreadPoolExecutor |

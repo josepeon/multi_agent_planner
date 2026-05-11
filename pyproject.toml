@@ -43,9 +43,21 @@ dependencies = [
 [project.optional-dependencies]
 openai = ["openai>=1.0.0"]
 gemini = ["google-generativeai>=0.8.0"]
+# Bridge to self-improving-agent. With this extra installed, the
+# export-to-SIA script can drive SIA's distillation + training pipelines
+# directly instead of just emitting JSONL for manual hand-off.
+#
+# Install with:
+#   pip install -e ".[sia]"
+#
+# Pinned to main; bump the @main ref to a tag once SIA cuts releases.
+sia = [
+    "self-improving-agent @ git+https://github.com/oh-systems/self-improving-agent.git@main",
+]
 all = [
     "openai>=1.0.0",
     "google-generativeai>=0.8.0",
+    "self-improving-agent @ git+https://github.com/oh-systems/self-improving-agent.git@main",
 ]
 dev = [
     "pytest>=7.0.0",

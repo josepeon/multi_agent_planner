@@ -38,9 +38,19 @@ class ArchitectAgent:
         # UserMemory. The default backend is JSON-on-disk; no external deps.
         self.user_memory = user_memory if user_memory is not None else UserMemory()
 
-    def design(self, user_prompt: str, tasks: list[str]) -> Architecture:
+    def design(
+        self,
+        user_prompt: str,
+        tasks: list[str],
+        research_brief: str = "",
+    ) -> Architecture:
         """
         Create an architecture design based on user request and planned tasks.
+
+        Optional ``research_brief`` is text from the Researcher agent; if
+        supplied it's included in the architect's prompt so design decisions
+        can reflect current library APIs and best practices.
+
         Returns an Architecture object that will guide development.
         """
 
@@ -87,10 +97,14 @@ RULES:
                     "request:\n" + remembered + "\n"
                 )
 
+        research_block = (
+            f"\n\n{research_brief}\n" if research_brief else ""
+        )
+
         user_message = f"""Project: {user_prompt}
 
 Planned Tasks:
-{tasks_str}{preferences_block}
+{tasks_str}{preferences_block}{research_block}
 
 Design the architecture:"""
 

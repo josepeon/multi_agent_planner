@@ -19,6 +19,7 @@ from agents.documenter import DocumenterAgent
 from agents.integrator import IntegratorAgent
 from agents.planner import PlannerAgent
 from agents.qa import QAAgent
+from agents.researcher import ResearcherAgent
 from agents.test_generator import TestGeneratorAgent
 from core import cost_tracker
 from core.checkpoints import (
@@ -85,6 +86,7 @@ critic: CriticAgent = CriticAgent()
 integrator: IntegratorAgent = IntegratorAgent()
 test_generator: TestGeneratorAgent = TestGeneratorAgent()
 documenter: DocumenterAgent = DocumenterAgent()
+researcher: ResearcherAgent = ResearcherAgent()
 memory: Memory = Memory(filepath="output/memory.json")
 shared_context: SharedContext = get_shared_context()
 
@@ -280,6 +282,20 @@ def run_pipeline(
     print(f"{'='*60}")
     emit_event(job_id, "stage_started", {"stage": "architect", "agent": "ArchitectAgent"})
     task_descriptions = [t.description if isinstance(t, Task) else t for t in tasks]
+
+    # Researcher stage (no-op when no search backend is configured)
+    research_brief_text = ""
+    research_brief = researcher.research(original_prompt, task_descriptions)
+    if not research_brief.empty:
+        research_brief_text = research_brief.render()
+        emit_event(job_id, "stage_finished", {
+            "stage": "researcher",
+            "agent": "ResearcherAgent",
+            "ok": True,
+            "summary": f"{len(research_brief.results)} source(s), "
+                       f"{len(research_brief.queries)} quer(ies)",
+        })
+
     arch_hint = ""
     for regen in range(MAX_CHECKPOINT_REGEN_TRIES + 1):
         with attribute("architect"):
@@ -287,6 +303,7 @@ def run_pipeline(
                 original_prompt
                 + (f"\n\nUser hint: {arch_hint}" if arch_hint else ""),
                 task_descriptions,
+                research_brief=research_brief_text,
             )
 
         artifact, status = _run_checkpoint(

@@ -10,6 +10,7 @@ import re
 from typing import Any
 
 from core.cache import BoundedCache
+from core.languages import LanguageProfile, get_profile
 from core.llm_provider import BaseLLMClient, get_llm_client
 from core.sandbox import execute_code_safely
 from core.task_schema import Task
@@ -31,12 +32,18 @@ class DeveloperAgent:
     client: BaseLLMClient
     memory: BoundedCache
 
-    def __init__(self, temperature: float = 0.3, sandbox_method: str = "restricted") -> None:
+    def __init__(
+        self,
+        temperature: float = 0.3,
+        sandbox_method: str = "restricted",
+        language: LanguageProfile | None = None,
+    ) -> None:
         self.temperature = temperature
         # 'restricted' (default, real security), 'docker' (strongest), or
         # 'crash_isolated' (alias 'subprocess'; crash isolation only — see
         # core/sandbox.py docstring before using on a hosted deployment).
         self.sandbox_method = sandbox_method
+        self.language = language or get_profile()
         self.client = get_llm_client(temperature=temperature, max_tokens=2048, role="developer")
         # Bounded LRU cache for response memoization. Cap = 1000 entries,
         # TTL = 30 days. Loads any pre-existing legacy unbounded JSON file.
@@ -65,16 +72,16 @@ class DeveloperAgent:
         Returns:
             Generated Python code as string
         """
+        lang = self.language
         system_message = (
-            "You are a senior Python developer. "
-            "Your job is to write a clean, minimal Python function or code block "
-            "that fulfills a single, clearly defined task. "
-            "IMPORTANT: Do NOT use input() or any interactive functions - the code must run without user interaction. "
-            "For GUI code, do NOT call mainloop() - just define the classes/functions. "
-            "CRITICAL: Always write COMPLETE code. Never truncate or leave code unfinished. "
-            "CRITICAL: If classes or functions are shown in the context as 'Already Defined', DO NOT REDEFINE THEM. "
-            "Just use them directly - assume they are imported and available. "
-            "Only return valid, complete Python code — no explanations, no markdown, no truncation."
+            f"You are a senior {lang.display} developer. "
+            f"Your job is to write a clean, minimal {lang.display} function or code block "
+            f"that fulfills a single, clearly defined task. "
+            f"{lang.developer_system_addendum} "
+            f"CRITICAL: Always write COMPLETE code. Never truncate or leave code unfinished. "
+            f"CRITICAL: If classes or functions are shown in the context as 'Already Defined', DO NOT REDEFINE THEM. "
+            f"Just use them directly — assume they are imported and available. "
+            f"Only return valid, complete {lang.display} code — no explanations, no markdown, no truncation."
         )
         base_prompt = f"Task: {task_description}"
         if feedback_message:

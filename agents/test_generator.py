@@ -7,6 +7,7 @@ Analyzes classes and functions to create comprehensive test coverage.
 """
 
 
+from core.languages import LanguageProfile, get_profile
 from core.llm_provider import BaseLLMClient, get_llm_client
 from core.shared_context import SharedContext, get_shared_context
 
@@ -18,8 +19,13 @@ class TestGeneratorAgent:
     client: BaseLLMClient
     shared_context: SharedContext
 
-    def __init__(self, temperature: float = 0.2) -> None:
+    def __init__(
+        self,
+        temperature: float = 0.2,
+        language: LanguageProfile | None = None,
+    ) -> None:
         self.temperature = temperature
+        self.language = language or get_profile()
         self.client = get_llm_client(temperature=temperature, role="test_generator")
         self.shared_context = get_shared_context()
 

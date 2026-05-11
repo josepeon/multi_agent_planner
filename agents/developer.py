@@ -37,7 +37,7 @@ class DeveloperAgent:
         # 'crash_isolated' (alias 'subprocess'; crash isolation only — see
         # core/sandbox.py docstring before using on a hosted deployment).
         self.sandbox_method = sandbox_method
-        self.client = get_llm_client(temperature=temperature, max_tokens=2048)
+        self.client = get_llm_client(temperature=temperature, max_tokens=2048, role="developer")
         # Bounded LRU cache for response memoization. Cap = 1000 entries,
         # TTL = 30 days. Loads any pre-existing legacy unbounded JSON file.
         self.memory = BoundedCache(

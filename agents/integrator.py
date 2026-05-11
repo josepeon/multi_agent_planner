@@ -29,7 +29,7 @@ class IntegratorAgent:
 
     def __init__(self, temperature: float = 0.1) -> None:
         self.temperature = temperature
-        self.client = get_llm_client(temperature=temperature)
+        self.client = get_llm_client(temperature=temperature, role="integrator")
         self.shared_context = get_shared_context()
 
     def integrate(self, session_log: dict[str, Any]) -> str:

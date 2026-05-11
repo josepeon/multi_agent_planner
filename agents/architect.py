@@ -32,7 +32,7 @@ class ArchitectAgent:
         user_memory: UserMemory | None = None,
     ) -> None:
         self.temperature = temperature
-        self.client = get_llm_client(temperature=temperature)
+        self.client = get_llm_client(temperature=temperature, role="architect")
         self.shared_context = get_shared_context()
         # Lazy: if the caller didn't supply one, instantiate a default-backed
         # UserMemory. The default backend is JSON-on-disk; no external deps.

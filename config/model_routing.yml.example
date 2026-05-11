@@ -1,0 +1,24 @@
+# Per-agent model routing.
+#
+# Copy this file to config/model_routing.yml (or point MODEL_ROUTING at it)
+# to override the built-in defaults. Format: `role: provider/model`. Lines
+# starting with `#` are comments.
+#
+# Without this file, every role uses Groq Llama 3.3 70B for reasoning
+# roles (planner, architect, developer, integrator, test_generator) and
+# Llama 3.1 8B for cheaper roles (critic, qa, documenter, researcher).
+#
+# Per-role env vars override this file. Example:
+#   export MODEL_FOR_documenter=groq/llama-3.1-8b-instant
+
+planner:        groq/llama-3.3-70b-versatile
+architect:      groq/llama-3.3-70b-versatile
+developer:      groq/llama-3.3-70b-versatile
+integrator:     groq/llama-3.3-70b-versatile
+test_generator: groq/llama-3.3-70b-versatile
+
+# Cheaper / faster for less-demanding roles
+critic:         groq/llama-3.1-8b-instant
+qa:             groq/llama-3.1-8b-instant
+documenter:     groq/llama-3.1-8b-instant
+researcher:     groq/llama-3.1-8b-instant

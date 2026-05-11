@@ -23,7 +23,7 @@ class CriticAgent:
         memory_path: str = "memory/critic_memory.json"
     ) -> None:
         self.temperature = temperature
-        self.client = get_llm_client(temperature=temperature, max_tokens=1024)
+        self.client = get_llm_client(temperature=temperature, max_tokens=1024, role="critic")
         # Bounded LRU cache for review memoization. Same defaults as developer:
         # cap = 1000 entries, TTL = 30 days. Loads legacy unbounded JSON cleanly.
         self.memory = BoundedCache(

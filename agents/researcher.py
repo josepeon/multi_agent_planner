@@ -64,7 +64,9 @@ class ResearcherAgent:
         results_per_query: int = 3,
     ) -> None:
         self.backend = backend or get_search_backend()
-        self.client = client or get_llm_client(temperature=0.2, max_tokens=512)
+        self.client = client or get_llm_client(
+            temperature=0.2, max_tokens=512, role="researcher"
+        )
         self.max_queries = max_queries
         self.results_per_query = results_per_query
 

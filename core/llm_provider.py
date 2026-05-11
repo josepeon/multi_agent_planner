@@ -446,6 +446,7 @@ def get_llm_client(
     model: str | None = None,
     temperature: float = 0.3,
     max_tokens: int = 1024,
+    role: str | None = None,
 ) -> BaseLLMClient:
     """
     Factory function to get an LLM client.
@@ -456,6 +457,9 @@ def get_llm_client(
         model: Model name (uses provider default if not specified)
         temperature: Sampling temperature
         max_tokens: Maximum tokens in response
+        role: Optional agent role for model routing. If set, the ModelRouter
+              decides the provider/model unless ``provider``/``model`` is
+              already given explicitly. See core.model_router.
 
     Returns:
         Configured LLM client
@@ -464,7 +468,21 @@ def get_llm_client(
         # Use free Groq API
         client = get_llm_client(provider="groq")
         response = client.chat("Write a hello world in Python")
+
+        # Routed by role
+        client = get_llm_client(role="documenter")  # picks a cheap model
     """
+    # Apply role-based routing only when caller didn't already specify
+    if role and (provider is None or model is None):
+        from core.model_router import get_router
+
+        choice = get_router().for_role(role)
+        if choice is not None:
+            if provider is None and choice.provider is not None:
+                provider = choice.provider
+            if model is None:
+                model = choice.model
+
     provider = provider or os.getenv("LLM_PROVIDER", "openai")
 
     if provider not in PROVIDERS:

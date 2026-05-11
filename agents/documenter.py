@@ -20,7 +20,7 @@ class DocumenterAgent:
 
     def __init__(self, temperature: float = 0.2) -> None:
         self.temperature = temperature
-        self.client = get_llm_client(temperature=temperature)
+        self.client = get_llm_client(temperature=temperature, role="documenter")
 
     def generate_readme(self, code: str, project_description: str) -> str:
         """

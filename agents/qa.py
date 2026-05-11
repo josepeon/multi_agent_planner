@@ -23,7 +23,7 @@ class QAAgent:
 
     def __init__(self, temperature: float = 0.2) -> None:
         self.temperature = temperature
-        self.client = get_llm_client(temperature=temperature, max_tokens=512)
+        self.client = get_llm_client(temperature=temperature, max_tokens=512, role="qa")
         self.memory = Memory(filepath="output/qa_memory.json")
 
     def evaluate_code(

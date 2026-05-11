@@ -21,7 +21,7 @@ class PlannerAgent:
 
     def __init__(self, temperature: float = 0.3) -> None:
         self.temperature = temperature
-        self.client = get_llm_client(temperature=temperature)
+        self.client = get_llm_client(temperature=temperature, role="planner")
 
     def plan_task(self, user_prompt: str) -> list[str]:
         """

@@ -42,6 +42,8 @@ Multi-Agent Planner is an intelligent code generation system that orchestrates *
 |  **Web Research (opt-in)** | ResearcherAgent runs web searches between Planner and Architect to surface current docs and best practices (`TAVILY_API_KEY` or `BRAVE_API_KEY`; no-op without a key) |
 |  **Cloud Sandbox (opt-in)** | Real isolation via E2B — only mode that can validate code doing real I/O (`E2B_API_KEY` + `pip install e2b-code-interpreter`) |
 |  **Best-of-N Generation** | `BEST_OF_N=3` generates N candidates per task in parallel, scores with the critic, keeps best — trades cost for quality |
+|  **Modify Existing Codebases** | Point at a local directory or git URL and produce a ModificationPlan (create/modify/delete file changes); review-then-apply, dry-run by default |
+|  **Deployer Agent** | Auto-picks Railway / Streamlit Cloud / Vercel / Modal based on detected framework; emits config files; deploys only when credentials are present and dry_run=False |
 |  **Architecture-First** | Architect agent creates high-level design before any code is written |
 |  **Smart Retry** | Failed tasks retry up to 3x with critic feedback for self-healing |
 |  **Shared Context** | Agents share knowledge of defined classes/functions via AST analysis |
@@ -171,7 +173,7 @@ python -m pytest tests/ -v
 # Run with coverage
 python -m pytest tests/ --cov=agents --cov=core
 
-# 215 tests covering agents, core modules, sandbox, integration, test execution, cache, cost tracking, and DAG executor
+# 251 tests covering agents, core modules, sandbox, integration, test execution, cache, cost tracking, and DAG executor
 ```
 
 ---
@@ -236,7 +238,7 @@ multi_agent_planner/
 │   ├── app.py                 # Flask server with rate limiting
 │   ├── openapi.yml            # OpenAPI 3.0 specification
 │   └── templates/index.html   # Web UI
-├── tests/                     # Test Suite (215 tests)
+├── tests/                     # Test Suite (251 tests)
 │   ├── test_agents.py         # Agent unit tests
 │   └── test_core.py           # Core module tests
 ├── .github/workflows/         # CI/CD
@@ -374,7 +376,7 @@ output/project/
 | **Web Framework** | Flask with rate limiting |
 | **API Docs** | OpenAPI 3.0 / Swagger UI |
 | **Code Analysis** | AST (Abstract Syntax Tree) |
-| **Testing** | pytest (215 tests) |
+| **Testing** | pytest (251 tests) |
 | **CI/CD** | GitHub Actions |
 | **Containerization** | Docker + Docker Compose |
 | **Concurrency** | ThreadPoolExecutor |

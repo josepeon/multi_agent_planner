@@ -172,3 +172,42 @@ class TestApply:
         )
         # Should not raise
         plan.apply(dry_run=False)
+
+
+# ===========================================
+# Ingestion hardening
+# ===========================================
+
+class TestIngestionHardening:
+    def test_ext_transport_rejected(self):
+        """ext:: is a git transport that executes the embedded command."""
+        import pytest
+
+        from core.repo_ingestion import ingest
+        with pytest.raises(ValueError, match="unsupported transport"):
+            ingest("ext::sh -c 'touch /tmp/pwned' .git")
+
+    def test_option_lookalike_rejected(self):
+        import pytest
+
+        from core.repo_ingestion import ingest
+        with pytest.raises(ValueError, match="option"):
+            ingest("--upload-pack=touch /tmp/pwned .git")
+
+    def test_https_url_passes_validation(self):
+        from core.repo_ingestion import _validate_git_url
+        _validate_git_url("https://github.com/user/repo.git")  # no raise
+        _validate_git_url("git@github.com:user/repo.git")  # no raise
+
+    def test_symlinked_file_not_read(self, tmp_path):
+        from core.repo_ingestion import ingest
+        secret = tmp_path / "secret.txt"
+        secret.write_text("HOST SECRET")
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        (repo / "README.md").symlink_to(secret)
+        (repo / "real.py").write_text("x = 1\n")
+
+        repo_map = ingest(str(repo))
+        assert "HOST SECRET" not in repo_map.readme
+        assert any(f.path == "real.py" for f in repo_map.files)

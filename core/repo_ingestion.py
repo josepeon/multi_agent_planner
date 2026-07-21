@@ -116,12 +116,16 @@ def ingest(source: str) -> RepoMap:
     ``cleanup_clone(repo_map)`` when done.
     """
     if _looks_like_git_url(source):
+        _validate_git_url(source)
         clone_dir = tempfile.mkdtemp(prefix="map_repo_clone_")
         subprocess.run(
-            ["git", "clone", "--depth", "1", source, clone_dir],
+            # "--" stops git from parsing a hostile source as an option
+            ["git", "clone", "--depth", "1", "--", source, clone_dir],
             check=True,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.PIPE,
+            # Block ext::/file:// and other command-executing transports
+            env={**os.environ, "GIT_ALLOW_PROTOCOL": "https:http:ssh:git"},
         )
         return _ingest_dir(Path(clone_dir))
 
@@ -145,6 +149,25 @@ def _looks_like_git_url(source: str) -> bool:
     return source.startswith(("git@", "https://github.com", "http://github.com")) or source.endswith(".git")
 
 
+_ALLOWED_URL_PREFIXES = ("https://", "http://", "git@", "ssh://", "git://")
+
+
+def _validate_git_url(source: str) -> None:
+    """Reject sources git would treat as options or command-executing transports.
+
+    ``ext::sh -c '...'`` is a valid git "URL" that runs the embedded command,
+    and a leading ``-`` can be parsed as a git option — both are RCE vectors
+    when the source string comes from an untrusted request.
+    """
+    if source.startswith("-"):
+        raise ValueError(f"Refusing git source that looks like an option: {source!r}")
+    if not source.startswith(_ALLOWED_URL_PREFIXES):
+        raise ValueError(
+            f"Refusing git source with unsupported transport: {source!r} "
+            f"(allowed: {', '.join(_ALLOWED_URL_PREFIXES)})"
+        )
+
+
 def _ingest_dir(root: Path) -> RepoMap:
     repo = RepoMap(root=root)
 
@@ -158,6 +181,11 @@ def _ingest_dir(root: Path) -> RepoMap:
             rel = full.relative_to(root).as_posix()
 
             if full.suffix.lower() in _BINARY_EXTS:
+                continue
+
+            # A symlinked README/requirements pointing outside the repo would
+            # otherwise leak host file contents into the LLM prompt.
+            if full.is_symlink():
                 continue
 
             try:

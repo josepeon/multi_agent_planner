@@ -66,23 +66,26 @@ class EventBus:
       events until ``end(job_id)`` is called.
     """
 
-    def __init__(self, history_cap: int = 500) -> None:
+    def __init__(self, history_cap: int = 500, max_jobs: int = 50) -> None:
         self._lock = threading.Lock()
         self._queues: dict[str, list[queue.Queue]] = {}
         self._history: dict[str, list[Event]] = {}
         self._seq: dict[str, int] = {}
+        self._ended: set[str] = set()
         self._history_cap = history_cap
+        self._max_jobs = max_jobs
 
     # ---- producer ----
 
     def emit(self, job_id: str, event_type: str, payload: dict[str, Any] | None = None) -> Event:
+        # seq assignment, history append, and queue snapshot must be one
+        # atomic block: with concurrent producers (parallel DAG nodes), doing
+        # them under separate lock acquisitions lets a higher-seq event land
+        # in history before a lower-seq one.
         with self._lock:
             self._seq[job_id] = self._seq.get(job_id, 0) + 1
-            seq = self._seq[job_id]
+            event = Event(type=event_type, payload=payload or {}, seq=self._seq[job_id])
 
-        event = Event(type=event_type, payload=payload or {}, seq=seq)
-
-        with self._lock:
             hist = self._history.setdefault(job_id, [])
             hist.append(event)
             if len(hist) > self._history_cap:
@@ -103,9 +106,24 @@ class EventBus:
         """Signal that no more events will be emitted for ``job_id``.
 
         Live subscribers receive END_OF_STREAM and exit their loop.
+        Idempotent: safe to call from both the pipeline and its supervisor.
+        Ended jobs beyond ``max_jobs`` have their history evicted (oldest
+        first) so a long-lived server doesn't grow without bound.
         """
         with self._lock:
             queues = list(self._queues.pop(job_id, []))
+            self._ended.add(job_id)
+
+            if len(self._history) > self._max_jobs:
+                # dict preserves insertion order → oldest jobs first
+                for jid in list(self._history):
+                    if len(self._history) <= self._max_jobs:
+                        break
+                    if jid in self._ended and jid != job_id:
+                        self._history.pop(jid, None)
+                        self._seq.pop(jid, None)
+                        self._ended.discard(jid)
+
         for q in queues:
             try:
                 q.put_nowait(END_OF_STREAM)
@@ -119,15 +137,21 @@ class EventBus:
 
         Yields ``Event`` instances and exits cleanly when ``end()`` is called.
         With ``replay=True`` (default), already-emitted events are yielded
-        first so a late subscriber gets the full history.
+        first so a late subscriber gets the full history. Subscribing to a
+        job that already ended replays its history and returns immediately
+        instead of blocking forever.
         """
-        q: queue.Queue = queue.Queue(maxsize=1000)
-
         with self._lock:
-            self._queues.setdefault(job_id, []).append(q)
             history = list(self._history.get(job_id, [])) if replay else []
+            if job_id in self._ended:
+                q = None
+            else:
+                q = queue.Queue(maxsize=1000)
+                self._queues.setdefault(job_id, []).append(q)
 
         yield from history
+        if q is None:
+            return
 
         while True:
             item = q.get()

@@ -28,6 +28,12 @@ from flask import Flask, Response, jsonify, render_template, request, send_file
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# The web app serves untrusted input: never let generated code fall back to
+# the crash-isolated (non-sandboxed) subprocess executor. Must be set before
+# the orchestrator/agents import. Operators can override explicitly with
+# MAP_FORBID_CRASH_ISOLATED=0 for a trusted localhost-only deployment.
+os.environ.setdefault("MAP_FORBID_CRASH_ISOLATED", "1")
+
 from core.events import get_bus, new_job_id
 from core.orchestrator import run_pipeline
 from core.task_schema import Task
@@ -62,6 +68,15 @@ class RateLimiter:
         now = time.time()
 
         with self.lock:
+            # Evict idle keys so the dict can't grow unbounded
+            stale = [
+                k for k, times in self.requests.items()
+                if not times or now - times[-1] > self.window_seconds
+            ]
+            for k in stale:
+                if k != key:
+                    del self.requests[k]
+
             # Clean old requests
             self.requests[key] = [
                 t for t in self.requests[key]
@@ -89,10 +104,15 @@ def rate_limit(f):
     """Decorator to apply rate limiting to routes."""
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        # Get client IP
-        client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
-        if client_ip:
-            client_ip = client_ip.split(',')[0].strip()
+        # Get client IP. X-Forwarded-For is client-controlled, so it is only
+        # honored when the operator declares a trusted reverse proxy in front
+        # (TRUST_PROXY=1); otherwise a caller could spoof a fresh IP per
+        # request and bypass the limiter entirely.
+        client_ip = request.remote_addr
+        if os.environ.get('TRUST_PROXY', '').lower() in ('1', 'true', 'yes'):
+            forwarded = request.headers.get('X-Forwarded-For', '')
+            if forwarded:
+                client_ip = forwarded.split(',')[0].strip()
 
         allowed, remaining = limiter.is_allowed(client_ip)
 
@@ -121,8 +141,24 @@ def rate_limit(f):
 # Job Storage
 # ===========================================
 
-# Store running jobs (in production, use Redis or a database)
+# Store running jobs (in production, use Redis or a database).
+# Guarded by jobs_lock; bounded so a long-lived server can't grow forever.
 jobs = {}
+jobs_lock = Lock()
+MAX_STORED_JOBS = int(os.environ.get('MAX_STORED_JOBS', 100))
+
+
+def _store_job(job_id: str, record: dict) -> None:
+    """Insert a job record, evicting the oldest finished jobs beyond the cap."""
+    with jobs_lock:
+        jobs[job_id] = record
+        if len(jobs) > MAX_STORED_JOBS:
+            finished = [
+                jid for jid, j in sorted(jobs.items(), key=lambda x: x[1]['started_at'])
+                if j['status'] != 'running'
+            ]
+            for jid in finished[:len(jobs) - MAX_STORED_JOBS]:
+                del jobs[jid]
 
 
 # ===========================================
@@ -190,13 +226,13 @@ def generate():
     job_id = new_job_id()
 
     # Store job status
-    jobs[job_id] = {
+    _store_job(job_id, {
         'status': 'running',
         'description': description,
         'started_at': datetime.now().isoformat(),
         'result': None,
         'error': None
-    }
+    })
 
     # Run generation in background thread
     def run_generation():
@@ -208,15 +244,23 @@ def generate():
                 job_id=job_id,
             )
 
-            jobs[job_id]['status'] = 'completed'
-            jobs[job_id]['result'] = {
-                'final_code': result,
-                'test_file': read_file_safe('output/test_program.py'),
-                'readme': read_file_safe('output/README.md'),
-            }
+            with jobs_lock:
+                # Populate result before flipping status so a concurrent
+                # /api/status reader can't see completed-with-no-result.
+                jobs[job_id]['result'] = {
+                    'final_code': result,
+                    'test_file': read_file_safe('output/test_program.py'),
+                    'readme': read_file_safe('output/README.md'),
+                }
+                jobs[job_id]['status'] = 'completed'
         except Exception as e:
-            jobs[job_id]['status'] = 'failed'
-            jobs[job_id]['error'] = str(e)
+            with jobs_lock:
+                jobs[job_id]['error'] = str(e)
+                jobs[job_id]['status'] = 'failed'
+        finally:
+            # If the pipeline died before signalling end-of-stream, close the
+            # event bus here so SSE subscribers don't block forever.
+            get_bus().end(job_id)
 
     thread = Thread(target=run_generation)
     thread.start()
@@ -253,10 +297,11 @@ def stream(job_id):
 @app.route('/api/status/<job_id>')
 def job_status(job_id):
     """Check the status of a running job."""
-    if job_id not in jobs:
+    with jobs_lock:
+        job = dict(jobs[job_id]) if job_id in jobs else None
+    if job is None:
         return jsonify({'error': 'Job not found'}), 404
 
-    job = jobs[job_id]
     response = {
         'job_id': job_id,
         'status': job['status'],
@@ -275,10 +320,10 @@ def job_status(job_id):
 @app.route('/api/download/<job_id>')
 def download_project(job_id):
     """Download the generated project as a ZIP file."""
-    if job_id not in jobs:
+    with jobs_lock:
+        job = dict(jobs[job_id]) if job_id in jobs else None
+    if job is None:
         return jsonify({'error': 'Job not found'}), 404
-
-    job = jobs[job_id]
     if job['status'] != 'completed':
         return jsonify({'error': 'Job not completed'}), 400
 
@@ -297,13 +342,14 @@ def download_project(job_id):
         if job['result'].get('readme'):
             zf.writestr('README.md', job['result']['readme'])
 
-        # Add multi-file project if exists
+        # Add multi-file project if exists (read as bytes: a non-UTF-8 file
+        # must not 500 the whole download)
         project_dir = 'output/project'
         if os.path.exists(project_dir):
             for filename in os.listdir(project_dir):
                 filepath = os.path.join(project_dir, filename)
                 if os.path.isfile(filepath):
-                    with open(filepath) as f:
+                    with open(filepath, 'rb') as f:
                         zf.writestr(f'project/{filename}', f.read())
 
     memory_file.seek(0)
@@ -320,7 +366,9 @@ def download_project(job_id):
 def recent_jobs():
     """Get list of recent jobs."""
     recent = []
-    for job_id, job in sorted(jobs.items(), key=lambda x: x[1]['started_at'], reverse=True)[:10]:
+    with jobs_lock:
+        snapshot = {jid: dict(j) for jid, j in jobs.items()}
+    for job_id, job in sorted(snapshot.items(), key=lambda x: x[1]['started_at'], reverse=True)[:10]:
         recent.append({
             'job_id': job_id,
             'status': job['status'],
@@ -333,11 +381,13 @@ def recent_jobs():
 @app.route('/api/health')
 def health_check():
     """Health check endpoint for Docker/Kubernetes."""
+    with jobs_lock:
+        active = len([j for j in jobs.values() if j['status'] == 'running'])
     return jsonify({
         'status': 'healthy',
         'service': 'multi-agent-planner',
-        'version': '1.0.0',
-        'active_jobs': len([j for j in jobs.values() if j['status'] == 'running'])
+        'version': '2.0.0',
+        'active_jobs': active
     })
 
 
@@ -356,8 +406,14 @@ if __name__ == '__main__':
 
     # Use port 8080 to avoid conflict with macOS AirPlay (port 5000)
     port = int(os.environ.get('PORT', 8080))
-    host = os.environ.get('HOST', '0.0.0.0')
+    # Bind loopback by default; opt in to network exposure with HOST=0.0.0.0
+    # (the Docker image does — the container boundary is its isolation).
+    host = os.environ.get('HOST', '127.0.0.1')
     debug = os.environ.get('FLASK_DEBUG', 'false').lower() == 'true'
+    if debug and host not in ('127.0.0.1', 'localhost', '::1'):
+        # The Werkzeug debugger is an RCE vector; never expose it off-box.
+        print(f"FLASK_DEBUG requested but host={host} is not loopback — disabling debug.")
+        debug = False
     print("Starting Multi-Agent Planner Web Interface...")
     print(f"Open http://localhost:{port} in your browser")
     app.run(debug=debug, host=host, port=port)

@@ -159,3 +159,60 @@ class TestModuleSingleton:
 
     def test_new_job_id_is_unique(self):
         assert new_job_id() != new_job_id()
+
+
+# ===========================================
+# Ended-job semantics (SSE hang fixes)
+# ===========================================
+
+class TestEndedJobs:
+    def test_subscribe_after_end_replays_and_returns(self):
+        """A late subscriber (e.g. SSE auto-reconnect after the run finished)
+        must get the history and terminate — not block forever."""
+        bus = EventBus()
+        bus.emit("j", "a")
+        bus.emit("j", "b")
+        bus.end("j")
+
+        collected = [e.type for e in bus.subscribe("j")]
+        assert collected == ["a", "b"]
+
+    def test_end_is_idempotent(self):
+        bus = EventBus()
+        bus.emit("j", "a")
+        bus.end("j")
+        bus.end("j")  # supervisor's finally after the pipeline already ended
+        assert [e.type for e in bus.subscribe("j")] == ["a"]
+
+    def test_ended_job_history_evicted_beyond_cap(self):
+        bus = EventBus(max_jobs=3)
+        for i in range(6):
+            bus.emit(f"job{i}", "x")
+            bus.end(f"job{i}")
+        # Oldest ended jobs evicted; at most max_jobs histories retained
+        retained = [f"job{i}" for i in range(6) if bus.history(f"job{i}")]
+        assert len(retained) <= 3
+        assert "job5" in retained  # most recent survives
+
+    def test_running_jobs_never_evicted(self):
+        bus = EventBus(max_jobs=2)
+        bus.emit("running", "x")  # never ended
+        for i in range(5):
+            bus.emit(f"done{i}", "x")
+            bus.end(f"done{i}")
+        assert [e.type for e in bus.history("running")] == ["x"]
+
+    def test_concurrent_emitters_history_matches_seq_order(self):
+        """With parallel producers, history order must equal seq order."""
+        bus = EventBus()
+        threads = [
+            threading.Thread(target=lambda: [bus.emit("j", "e") for _ in range(50)])
+            for _ in range(4)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        seqs = [e.seq for e in bus.history("j")]
+        assert seqs == sorted(seqs)
+        assert len(seqs) == 200

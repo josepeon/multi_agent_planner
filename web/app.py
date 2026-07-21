@@ -45,6 +45,7 @@ app = Flask(__name__)
 # Rate Limiting
 # ===========================================
 
+
 class RateLimiter:
     """
     Simple in-memory rate limiter.
@@ -70,7 +71,8 @@ class RateLimiter:
         with self.lock:
             # Evict idle keys so the dict can't grow unbounded
             stale = [
-                k for k, times in self.requests.items()
+                k
+                for k, times in self.requests.items()
                 if not times or now - times[-1] > self.window_seconds
             ]
             for k in stale:
@@ -78,10 +80,7 @@ class RateLimiter:
                     del self.requests[k]
 
             # Clean old requests
-            self.requests[key] = [
-                t for t in self.requests[key]
-                if now - t < self.window_seconds
-            ]
+            self.requests[key] = [t for t in self.requests[key] if now - t < self.window_seconds]
 
             # Check limit
             if len(self.requests[key]) >= self.max_requests:
@@ -95,13 +94,14 @@ class RateLimiter:
 
 # Rate limiter: 10 requests per minute per IP
 limiter = RateLimiter(
-    max_requests=int(os.environ.get('RATE_LIMIT_MAX', 10)),
-    window_seconds=int(os.environ.get('RATE_LIMIT_WINDOW', 60))
+    max_requests=int(os.environ.get("RATE_LIMIT_MAX", 10)),
+    window_seconds=int(os.environ.get("RATE_LIMIT_WINDOW", 60)),
 )
 
 
 def rate_limit(f):
     """Decorator to apply rate limiting to routes."""
+
     @wraps(f)
     def decorated_function(*args, **kwargs):
         # Get client IP. X-Forwarded-For is client-controlled, so it is only
@@ -109,29 +109,31 @@ def rate_limit(f):
         # (TRUST_PROXY=1); otherwise a caller could spoof a fresh IP per
         # request and bypass the limiter entirely.
         client_ip = request.remote_addr
-        if os.environ.get('TRUST_PROXY', '').lower() in ('1', 'true', 'yes'):
-            forwarded = request.headers.get('X-Forwarded-For', '')
+        if os.environ.get("TRUST_PROXY", "").lower() in ("1", "true", "yes"):
+            forwarded = request.headers.get("X-Forwarded-For", "")
             if forwarded:
-                client_ip = forwarded.split(',')[0].strip()
+                client_ip = forwarded.split(",")[0].strip()
 
         allowed, remaining = limiter.is_allowed(client_ip)
 
         if not allowed:
-            response = jsonify({
-                'error': 'Rate limit exceeded',
-                'message': 'Too many requests. Please wait before trying again.',
-                'retry_after': limiter.window_seconds
-            })
+            response = jsonify(
+                {
+                    "error": "Rate limit exceeded",
+                    "message": "Too many requests. Please wait before trying again.",
+                    "retry_after": limiter.window_seconds,
+                }
+            )
             response.status_code = 429
-            response.headers['Retry-After'] = str(limiter.window_seconds)
-            response.headers['X-RateLimit-Remaining'] = '0'
+            response.headers["Retry-After"] = str(limiter.window_seconds)
+            response.headers["X-RateLimit-Remaining"] = "0"
             return response
 
         # Add rate limit headers to response
         response = f(*args, **kwargs)
-        if hasattr(response, 'headers'):
-            response.headers['X-RateLimit-Remaining'] = str(remaining)
-            response.headers['X-RateLimit-Limit'] = str(limiter.max_requests)
+        if hasattr(response, "headers"):
+            response.headers["X-RateLimit-Remaining"] = str(remaining)
+            response.headers["X-RateLimit-Limit"] = str(limiter.max_requests)
         return response
 
     return decorated_function
@@ -145,7 +147,7 @@ def rate_limit(f):
 # Guarded by jobs_lock; bounded so a long-lived server can't grow forever.
 jobs = {}
 jobs_lock = Lock()
-MAX_STORED_JOBS = int(os.environ.get('MAX_STORED_JOBS', 100))
+MAX_STORED_JOBS = int(os.environ.get("MAX_STORED_JOBS", 100))
 
 
 def _store_job(job_id: str, record: dict) -> None:
@@ -154,10 +156,11 @@ def _store_job(job_id: str, record: dict) -> None:
         jobs[job_id] = record
         if len(jobs) > MAX_STORED_JOBS:
             finished = [
-                jid for jid, j in sorted(jobs.items(), key=lambda x: x[1]['started_at'])
-                if j['status'] != 'running'
+                jid
+                for jid, j in sorted(jobs.items(), key=lambda x: x[1]["started_at"])
+                if j["status"] != "running"
             ]
-            for jid in finished[:len(jobs) - MAX_STORED_JOBS]:
+            for jid in finished[: len(jobs) - MAX_STORED_JOBS]:
                 del jobs[jid]
 
 
@@ -165,25 +168,23 @@ def _store_job(job_id: str, record: dict) -> None:
 # Routes
 # ===========================================
 
-@app.route('/')
+
+@app.route("/")
 def index():
     """Main page with the input form."""
-    return render_template('index.html')
+    return render_template("index.html")
 
 
-@app.route('/api/docs')
+@app.route("/api/docs")
 def api_docs():
     """Serve OpenAPI spec as YAML."""
-    return send_file(
-        os.path.join(os.path.dirname(__file__), 'openapi.yml'),
-        mimetype='text/yaml'
-    )
+    return send_file(os.path.join(os.path.dirname(__file__), "openapi.yml"), mimetype="text/yaml")
 
 
-@app.route('/swagger')
+@app.route("/swagger")
 def swagger_ui():
     """Serve Swagger UI for API documentation."""
-    swagger_html = '''
+    swagger_html = """
 <!DOCTYPE html>
 <html>
 <head>
@@ -203,11 +204,11 @@ def swagger_ui():
     </script>
 </body>
 </html>
-'''
+"""
     return swagger_html
 
 
-@app.route('/api/generate', methods=['POST'])
+@app.route("/api/generate", methods=["POST"])
 @rate_limit
 def generate():
     """
@@ -217,22 +218,25 @@ def generate():
     Rate limited: 10 requests per minute per IP.
     """
     data = request.json
-    description = data.get('description', '').strip()
+    description = data.get("description", "").strip()
 
     if not description:
-        return jsonify({'error': 'Description is required'}), 400
+        return jsonify({"error": "Description is required"}), 400
 
     # Create a job ID — opaque short hash so SSE clients can subscribe by it
     job_id = new_job_id()
 
     # Store job status
-    _store_job(job_id, {
-        'status': 'running',
-        'description': description,
-        'started_at': datetime.now().isoformat(),
-        'result': None,
-        'error': None
-    })
+    _store_job(
+        job_id,
+        {
+            "status": "running",
+            "description": description,
+            "started_at": datetime.now().isoformat(),
+            "result": None,
+            "error": None,
+        },
+    )
 
     # Run generation in background thread
     def run_generation():
@@ -247,16 +251,16 @@ def generate():
             with jobs_lock:
                 # Populate result before flipping status so a concurrent
                 # /api/status reader can't see completed-with-no-result.
-                jobs[job_id]['result'] = {
-                    'final_code': result,
-                    'test_file': read_file_safe('output/test_program.py'),
-                    'readme': read_file_safe('output/README.md'),
+                jobs[job_id]["result"] = {
+                    "final_code": result,
+                    "test_file": read_file_safe("output/test_program.py"),
+                    "readme": read_file_safe("output/README.md"),
                 }
-                jobs[job_id]['status'] = 'completed'
+                jobs[job_id]["status"] = "completed"
         except Exception as e:
             with jobs_lock:
-                jobs[job_id]['error'] = str(e)
-                jobs[job_id]['status'] = 'failed'
+                jobs[job_id]["error"] = str(e)
+                jobs[job_id]["status"] = "failed"
         finally:
             # If the pipeline died before signalling end-of-stream, close the
             # event bus here so SSE subscribers don't block forever.
@@ -265,10 +269,10 @@ def generate():
     thread = Thread(target=run_generation)
     thread.start()
 
-    return jsonify({'job_id': job_id, 'status': 'running'})
+    return jsonify({"job_id": job_id, "status": "running"})
 
 
-@app.route('/api/stream/<job_id>')
+@app.route("/api/stream/<job_id>")
 def stream(job_id):
     """Server-Sent Events stream of pipeline events for ``job_id``.
 
@@ -294,101 +298,108 @@ def stream(job_id):
     return Response(event_stream(), headers=headers)
 
 
-@app.route('/api/status/<job_id>')
+@app.route("/api/status/<job_id>")
 def job_status(job_id):
     """Check the status of a running job."""
     with jobs_lock:
         job = dict(jobs[job_id]) if job_id in jobs else None
     if job is None:
-        return jsonify({'error': 'Job not found'}), 404
+        return jsonify({"error": "Job not found"}), 404
 
     response = {
-        'job_id': job_id,
-        'status': job['status'],
-        'description': job['description'],
-        'started_at': job['started_at']
+        "job_id": job_id,
+        "status": job["status"],
+        "description": job["description"],
+        "started_at": job["started_at"],
     }
 
-    if job['status'] == 'completed':
-        response['result'] = job['result']
-    elif job['status'] == 'failed':
-        response['error'] = job['error']
+    if job["status"] == "completed":
+        response["result"] = job["result"]
+    elif job["status"] == "failed":
+        response["error"] = job["error"]
 
     return jsonify(response)
 
 
-@app.route('/api/download/<job_id>')
+@app.route("/api/download/<job_id>")
 def download_project(job_id):
     """Download the generated project as a ZIP file."""
     with jobs_lock:
         job = dict(jobs[job_id]) if job_id in jobs else None
     if job is None:
-        return jsonify({'error': 'Job not found'}), 404
-    if job['status'] != 'completed':
-        return jsonify({'error': 'Job not completed'}), 400
+        return jsonify({"error": "Job not found"}), 404
+    if job["status"] != "completed":
+        return jsonify({"error": "Job not completed"}), 400
 
     # Create ZIP file in memory
     memory_file = io.BytesIO()
-    with zipfile.ZipFile(memory_file, 'w', zipfile.ZIP_DEFLATED) as zf:
+    with zipfile.ZipFile(memory_file, "w", zipfile.ZIP_DEFLATED) as zf:
         # Add main program
-        if job['result'].get('final_code'):
-            zf.writestr('main.py', job['result']['final_code'])
+        if job["result"].get("final_code"):
+            zf.writestr("main.py", job["result"]["final_code"])
 
         # Add test file
-        if job['result'].get('test_file'):
-            zf.writestr('test_main.py', job['result']['test_file'])
+        if job["result"].get("test_file"):
+            zf.writestr("test_main.py", job["result"]["test_file"])
 
         # Add README
-        if job['result'].get('readme'):
-            zf.writestr('README.md', job['result']['readme'])
+        if job["result"].get("readme"):
+            zf.writestr("README.md", job["result"]["readme"])
 
         # Add multi-file project if exists (read as bytes: a non-UTF-8 file
         # must not 500 the whole download)
-        project_dir = 'output/project'
+        project_dir = "output/project"
         if os.path.exists(project_dir):
             for filename in os.listdir(project_dir):
                 filepath = os.path.join(project_dir, filename)
                 if os.path.isfile(filepath):
-                    with open(filepath, 'rb') as f:
-                        zf.writestr(f'project/{filename}', f.read())
+                    with open(filepath, "rb") as f:
+                        zf.writestr(f"project/{filename}", f.read())
 
     memory_file.seek(0)
 
     return send_file(
         memory_file,
-        mimetype='application/zip',
+        mimetype="application/zip",
         as_attachment=True,
-        download_name=f'generated_project_{job_id}.zip'
+        download_name=f"generated_project_{job_id}.zip",
     )
 
 
-@app.route('/api/recent')
+@app.route("/api/recent")
 def recent_jobs():
     """Get list of recent jobs."""
     recent = []
     with jobs_lock:
         snapshot = {jid: dict(j) for jid, j in jobs.items()}
-    for job_id, job in sorted(snapshot.items(), key=lambda x: x[1]['started_at'], reverse=True)[:10]:
-        recent.append({
-            'job_id': job_id,
-            'status': job['status'],
-            'description': job['description'][:100] + ('...' if len(job['description']) > 100 else ''),
-            'started_at': job['started_at']
-        })
+    for job_id, job in sorted(snapshot.items(), key=lambda x: x[1]["started_at"], reverse=True)[
+        :10
+    ]:
+        recent.append(
+            {
+                "job_id": job_id,
+                "status": job["status"],
+                "description": job["description"][:100]
+                + ("..." if len(job["description"]) > 100 else ""),
+                "started_at": job["started_at"],
+            }
+        )
     return jsonify(recent)
 
 
-@app.route('/api/health')
+@app.route("/api/health")
 def health_check():
     """Health check endpoint for Docker/Kubernetes."""
     with jobs_lock:
-        active = len([j for j in jobs.values() if j['status'] == 'running'])
-    return jsonify({
-        'status': 'healthy',
-        'service': 'multi-agent-planner',
-        'version': '2.0.0',
-        'active_jobs': active
-    })
+        active = len([j for j in jobs.values() if j["status"] == "running"])
+    return jsonify(
+        {
+            "status": "healthy",
+            "service": "multi-agent-planner",
+            "version": "2.0.0",
+            "active_jobs": active,
+        }
+    )
 
 
 def read_file_safe(filepath):
@@ -400,17 +411,17 @@ def read_file_safe(filepath):
         return None
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Create output directory if it doesn't exist
-    os.makedirs('output', exist_ok=True)
+    os.makedirs("output", exist_ok=True)
 
     # Use port 8080 to avoid conflict with macOS AirPlay (port 5000)
-    port = int(os.environ.get('PORT', 8080))
+    port = int(os.environ.get("PORT", 8080))
     # Bind loopback by default; opt in to network exposure with HOST=0.0.0.0
     # (the Docker image does — the container boundary is its isolation).
-    host = os.environ.get('HOST', '127.0.0.1')
-    debug = os.environ.get('FLASK_DEBUG', 'false').lower() == 'true'
-    if debug and host not in ('127.0.0.1', 'localhost', '::1'):
+    host = os.environ.get("HOST", "127.0.0.1")
+    debug = os.environ.get("FLASK_DEBUG", "false").lower() == "true"
+    if debug and host not in ("127.0.0.1", "localhost", "::1"):
         # The Werkzeug debugger is an RCE vector; never expose it off-box.
         print(f"FLASK_DEBUG requested but host={host} is not loopback — disabling debug.")
         debug = False

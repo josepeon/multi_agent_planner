@@ -33,6 +33,7 @@ from pathlib import Path
 # Spec types
 # ===========================================
 
+
 @dataclass
 class EvalCase:
     """One row in the eval corpus."""
@@ -115,6 +116,7 @@ class EvalReport:
 # Rubrics
 # ===========================================
 
+
 @dataclass
 class RubricContext:
     """What every rubric receives."""
@@ -134,15 +136,16 @@ def rubric_compiles(ctx: RubricContext) -> RubricResult:
     """Final code parses as valid Python."""
     if not ctx.final_code.strip():
         return RubricResult(
-            name="compiles", passed=False, score=0.0,
-            detail="no final_program.py produced"
+            name="compiles", passed=False, score=0.0, detail="no final_program.py produced"
         )
     try:
         ast.parse(ctx.final_code)
     except SyntaxError as exc:
         return RubricResult(
-            name="compiles", passed=False, score=0.0,
-            detail=f"syntax error at line {exc.lineno}: {exc.msg}"
+            name="compiles",
+            passed=False,
+            score=0.0,
+            detail=f"syntax error at line {exc.lineno}: {exc.msg}",
         )
     return RubricResult(name="compiles", passed=True, score=1.0)
 
@@ -151,16 +154,14 @@ def rubric_tests_present(ctx: RubricContext) -> RubricResult:
     """Generated test file contains at least one test function."""
     if not ctx.test_code:
         return RubricResult(
-            name="tests_present", passed=False, score=0.0,
-            detail="no test_program.py produced"
+            name="tests_present", passed=False, score=0.0, detail="no test_program.py produced"
         )
     has_test_fn = bool(re.search(r"^def test_\w", ctx.test_code, re.MULTILINE))
     has_test_class = bool(re.search(r"^class Test\w", ctx.test_code, re.MULTILINE))
     if has_test_fn or has_test_class:
         return RubricResult(name="tests_present", passed=True, score=1.0)
     return RubricResult(
-        name="tests_present", passed=False, score=0.0,
-        detail="no def test_* or class Test* found"
+        name="tests_present", passed=False, score=0.0, detail="no def test_* or class Test* found"
     )
 
 
@@ -168,13 +169,14 @@ def rubric_tests_pass(ctx: RubricContext) -> RubricResult:
     """T1's test-runner output records the generated tests passing."""
     if not ctx.test_run:
         return RubricResult(
-            name="tests_pass", passed=False, score=0.0,
-            detail="no test_results.json from pipeline"
+            name="tests_pass", passed=False, score=0.0, detail="no test_results.json from pipeline"
         )
     if not ctx.test_run.get("ran"):
         return RubricResult(
-            name="tests_pass", passed=False, score=0.0,
-            detail=f"tests not run: {ctx.test_run.get('skip_reason', 'unknown')}"
+            name="tests_pass",
+            passed=False,
+            score=0.0,
+            detail=f"tests not run: {ctx.test_run.get('skip_reason', 'unknown')}",
         )
     if ctx.test_run.get("all_passed"):
         return RubricResult(name="tests_pass", passed=True, score=1.0)
@@ -194,8 +196,7 @@ def rubric_readme_nonempty(ctx: RubricContext) -> RubricResult:
     if n >= 200:
         return RubricResult(name="readme_nonempty", passed=True, score=1.0)
     return RubricResult(
-        name="readme_nonempty", passed=False, score=n / 200,
-        detail=f"only {n} chars"
+        name="readme_nonempty", passed=False, score=n / 200, detail=f"only {n} chars"
     )
 
 
@@ -240,6 +241,7 @@ def register_rubric(name: str, fn: RubricFn) -> None:
 # Corpus loader (light YAML)
 # ===========================================
 
+
 def load_corpus(path: str | Path) -> list[EvalCase]:
     """Load an eval corpus from a tiny YAML file.
 
@@ -277,12 +279,14 @@ def _parse_minimal_yaml(text: str) -> list[EvalCase]:
     def flush():
         if not current:
             return
-        cases.append(EvalCase(
-            id=str(current.get("id", "")),
-            prompt=str(current.get("prompt", "")),
-            rubrics=current.get("rubrics", []),
-            metadata=current.get("metadata", {}),
-        ))
+        cases.append(
+            EvalCase(
+                id=str(current.get("id", "")),
+                prompt=str(current.get("prompt", "")),
+                rubrics=current.get("rubrics", []),
+                metadata=current.get("metadata", {}),
+            )
+        )
 
     for line in text.splitlines():
         stripped = line.rstrip()
@@ -304,9 +308,7 @@ def _parse_minimal_yaml(text: str) -> list[EvalCase]:
         elif key == "rubrics":
             # Expect inline list: [a, b, c]
             value = value.strip("[]")
-            current["rubrics"] = [
-                v.strip() for v in value.split(",") if v.strip()
-            ]
+            current["rubrics"] = [v.strip() for v in value.split(",") if v.strip()]
     flush()
     return cases
 
@@ -314,6 +316,7 @@ def _parse_minimal_yaml(text: str) -> list[EvalCase]:
 # ===========================================
 # Runner
 # ===========================================
+
 
 def evaluate_artifacts(
     case: EvalCase,
@@ -334,22 +337,29 @@ def evaluate_artifacts(
     for rubric_name in case.rubrics:
         fn = RUBRIC_REGISTRY.get(rubric_name)
         if fn is None:
-            rubric_results.append(RubricResult(
-                name=rubric_name, passed=False, score=0.0,
-                detail=f"unknown rubric '{rubric_name}'"
-            ))
+            rubric_results.append(
+                RubricResult(
+                    name=rubric_name,
+                    passed=False,
+                    score=0.0,
+                    detail=f"unknown rubric '{rubric_name}'",
+                )
+            )
             continue
         try:
             rubric_results.append(fn(ctx))
         except Exception as exc:  # noqa: BLE001
-            rubric_results.append(RubricResult(
-                name=rubric_name, passed=False, score=0.0,
-                detail=f"rubric raised: {type(exc).__name__}: {exc}"
-            ))
+            rubric_results.append(
+                RubricResult(
+                    name=rubric_name,
+                    passed=False,
+                    score=0.0,
+                    detail=f"rubric raised: {type(exc).__name__}: {exc}",
+                )
+            )
 
     aggregate = (
-        sum(r.score for r in rubric_results) / len(rubric_results)
-        if rubric_results else 0.0
+        sum(r.score for r in rubric_results) / len(rubric_results) if rubric_results else 0.0
     )
     return CaseResult(
         case_id=case.id,

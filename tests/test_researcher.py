@@ -17,6 +17,7 @@ from core.web_search import (
 # Backend factory
 # ===========================================
 
+
 class TestFactory:
     def test_default_with_no_keys_returns_noop(self, monkeypatch):
         monkeypatch.delenv("TAVILY_API_KEY", raising=False)
@@ -54,6 +55,7 @@ class TestFactory:
 # NoOp behavior
 # ===========================================
 
+
 class TestNoOpBackend:
     def test_search_returns_empty(self):
         assert NoOpBackend().search("anything", k=5) == []
@@ -65,6 +67,7 @@ class TestNoOpBackend:
 # ===========================================
 # Tavily / Brave configuration
 # ===========================================
+
 
 class TestProviderConfiguration:
     def test_tavily_not_configured_without_key(self, monkeypatch):
@@ -83,6 +86,7 @@ class TestProviderConfiguration:
 # ===========================================
 # ResearchBrief
 # ===========================================
+
 
 class TestResearchBrief:
     def test_empty_brief_renders_to_empty_string(self):
@@ -106,6 +110,7 @@ class TestResearchBrief:
 # ===========================================
 # ResearcherAgent
 # ===========================================
+
 
 class StubBackend:
     """Test double — returns canned results."""
@@ -142,16 +147,24 @@ class TestResearcherAgent:
         # Backend says is_configured=False
         class Unconfigured:
             name = "x"
-            def is_configured(self): return False
-            def search(self, q, k=5): return []
+
+            def is_configured(self):
+                return False
+
+            def search(self, q, k=5):
+                return []
 
         agent = ResearcherAgent(backend=Unconfigured(), client=StubClient("", ""))
         assert agent.research("anything", []).empty
 
     def test_with_results_returns_summary(self):
-        backend = StubBackend([
-            SearchResult(title="FastAPI Docs", url="https://fastapi.tiangolo.com", snippet="..."),
-        ])
+        backend = StubBackend(
+            [
+                SearchResult(
+                    title="FastAPI Docs", url="https://fastapi.tiangolo.com", snippet="..."
+                ),
+            ]
+        )
         client = StubClient(
             queries_response="fastapi best practices\npydantic v2\n",
             summary_response="Use FastAPI 0.110 with Pydantic v2.",
@@ -167,9 +180,7 @@ class TestResearcherAgent:
         result = SearchResult(title="t", url="https://same.example/x", snippet="a")
         backend = StubBackend([result, result, result])
         client = StubClient("q1\nq2\n", "summary")
-        agent = ResearcherAgent(
-            backend=backend, client=client, max_queries=2, results_per_query=2
-        )
+        agent = ResearcherAgent(backend=backend, client=client, max_queries=2, results_per_query=2)
         brief = agent.research("prompt", ["task"])
         # Two queries, but same URL collapsed
         assert len(brief.results) == 1
@@ -177,8 +188,12 @@ class TestResearcherAgent:
     def test_search_failure_does_not_crash(self):
         class Boom:
             name = "boom"
-            def is_configured(self): return True
-            def search(self, *_a, **_kw): raise RuntimeError("network down")
+
+            def is_configured(self):
+                return True
+
+            def search(self, *_a, **_kw):
+                raise RuntimeError("network down")
 
         agent = ResearcherAgent(
             backend=Boom(),

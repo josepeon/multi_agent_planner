@@ -30,12 +30,13 @@ from typing import TypeVar
 # Set up logging
 logger = logging.getLogger(__name__)
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 @dataclass
 class RetryConfig:
     """Configuration for retry behavior."""
+
     max_retries: int = 3
     base_delay: float = 1.0  # seconds
     max_delay: float = 60.0  # seconds
@@ -44,30 +45,34 @@ class RetryConfig:
     jitter_factor: float = 0.1  # ±10% jitter
 
     # Exceptions that should trigger retry
-    retryable_exceptions: list[type[Exception]] = field(default_factory=lambda: [
-        ConnectionError,
-        TimeoutError,
-        OSError,
-    ])
+    retryable_exceptions: list[type[Exception]] = field(
+        default_factory=lambda: [
+            ConnectionError,
+            TimeoutError,
+            OSError,
+        ]
+    )
 
     # Specific error messages to retry on
-    retryable_messages: list[str] = field(default_factory=lambda: [
-        "rate limit",
-        "too many requests",
-        "service unavailable",
-        "timeout",
-        "connection reset",
-        "internal server error",
-        "502", "503", "504", "529",
-    ])
+    retryable_messages: list[str] = field(
+        default_factory=lambda: [
+            "rate limit",
+            "too many requests",
+            "service unavailable",
+            "timeout",
+            "connection reset",
+            "internal server error",
+            "502",
+            "503",
+            "504",
+            "529",
+        ]
+    )
 
 
-def calculate_delay(
-    attempt: int,
-    config: RetryConfig
-) -> float:
+def calculate_delay(attempt: int, config: RetryConfig) -> float:
     """Calculate delay for the next retry attempt with exponential backoff."""
-    delay = config.base_delay * (config.exponential_base ** attempt)
+    delay = config.base_delay * (config.exponential_base**attempt)
     delay = min(delay, config.max_delay)
 
     if config.jitter:
@@ -77,10 +82,7 @@ def calculate_delay(
     return max(0, delay)
 
 
-def should_retry(
-    exception: Exception,
-    config: RetryConfig
-) -> bool:
+def should_retry(exception: Exception, config: RetryConfig) -> bool:
     """Determine if an exception should trigger a retry."""
     # Check exception type
     for exc_type in config.retryable_exceptions:
@@ -162,6 +164,7 @@ def retry_with_backoff(
             raise RuntimeError("Unexpected retry loop exit")
 
         return wrapper
+
     return decorator
 
 
@@ -188,7 +191,7 @@ class RetryContext:
         self.attempts = 0
         self.last_exception: Exception | None = None
 
-    def __enter__(self) -> 'RetryContext':
+    def __enter__(self) -> "RetryContext":
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
@@ -236,16 +239,26 @@ def retry_llm_call(
         base_delay=1.0,
         max_delay=30.0,
         retryable_messages=[
-            "rate limit", "rate_limit", "ratelimit",
-            "too many requests", "429",
-            "service unavailable", "503",
-            "timeout", "timed out",
-            "connection", "network",
-            "internal server error", "500",
-            "bad gateway", "502",
-            "gateway timeout", "504",
-            "overloaded", "capacity",
-        ]
+            "rate limit",
+            "rate_limit",
+            "ratelimit",
+            "too many requests",
+            "429",
+            "service unavailable",
+            "503",
+            "timeout",
+            "timed out",
+            "connection",
+            "network",
+            "internal server error",
+            "500",
+            "bad gateway",
+            "502",
+            "gateway timeout",
+            "504",
+            "overloaded",
+            "capacity",
+        ],
     )
 
     last_exception: Exception | None = None

@@ -44,6 +44,7 @@ from typing import Any
 # Sentinels & helper types
 # ===========================================
 
+
 class _Skipped:
     """Sentinel returned in place of a value for skipped nodes."""
 
@@ -143,6 +144,7 @@ class GraphResult:
 # Graph
 # ===========================================
 
+
 class PipelineGraph:
     """Mutable DAG of pipeline nodes."""
 
@@ -175,9 +177,7 @@ class PipelineGraph:
         for node in self._nodes.values():
             for dep in node.depends_on:
                 if dep not in self._nodes:
-                    raise ValueError(
-                        f"Node '{node.id}' depends on unknown node '{dep}'"
-                    )
+                    raise ValueError(f"Node '{node.id}' depends on unknown node '{dep}'")
         # Cycle check via Kahn's algorithm
         indeg = {n.id: len(n.depends_on) for n in self._nodes.values()}
         ready = [nid for nid, n in indeg.items() if n == 0]
@@ -240,9 +240,7 @@ class PipelineGraph:
             to_run: list[PipelineNode] = []
             for node in ready:
                 if any(
-                    result.nodes[d].status == "failed"
-                    for d in node.depends_on
-                    if d in result.nodes
+                    result.nodes[d].status == "failed" for d in node.depends_on if d in result.nodes
                 ):
                     to_skip.append(node)
                 else:

@@ -24,12 +24,11 @@ from core.task_schema import Task
 # AutoApproveHandler
 # ===========================================
 
+
 class TestAutoApprove:
     def test_always_approves(self):
         h = AutoApproveHandler()
-        decision = h.handle(
-            CheckpointPrompt(stage="plan", artifact=["x"], rendered="rendered")
-        )
+        decision = h.handle(CheckpointPrompt(stage="plan", artifact=["x"], rendered="rendered"))
         assert isinstance(decision, ApproveDecision)
 
 
@@ -37,13 +36,16 @@ class TestAutoApprove:
 # ScriptedHandler (for tests)
 # ===========================================
 
+
 class TestScriptedHandler:
     def test_pops_decisions_in_order(self):
-        h = ScriptedHandler([
-            ApproveDecision(),
-            RegenerateDecision(hint="more detail"),
-            EditDecision(new_artifact="new"),
-        ])
+        h = ScriptedHandler(
+            [
+                ApproveDecision(),
+                RegenerateDecision(hint="more detail"),
+                EditDecision(new_artifact="new"),
+            ]
+        )
         p1 = CheckpointPrompt(stage="plan", artifact=[], rendered="")
         p2 = CheckpointPrompt(stage="plan", artifact=[], rendered="")
         p3 = CheckpointPrompt(stage="plan", artifact=[], rendered="")
@@ -69,6 +71,7 @@ class TestScriptedHandler:
 # ===========================================
 # CLIHandler
 # ===========================================
+
 
 class TestCLIHandler:
     def test_empty_input_approves(self):
@@ -107,6 +110,7 @@ class TestCLIHandler:
 # Renderers
 # ===========================================
 
+
 class TestRenderers:
     def test_render_plan_with_tasks(self):
         tasks = [
@@ -133,6 +137,7 @@ class TestRenderers:
 # ===========================================
 # Edit parser
 # ===========================================
+
 
 class TestEditParser:
     def test_plan_parser_splits_lines(self):
@@ -165,6 +170,7 @@ class TestEditParser:
 # ===========================================
 # Env-based factory
 # ===========================================
+
 
 class TestEnvFactory:
     def test_default_is_auto(self, monkeypatch):

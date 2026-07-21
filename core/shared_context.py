@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 @dataclass
 class CodeBlock:
     """Represents a generated code block with metadata."""
+
     name: str  # e.g., "Task class", "add_task method"
     code: str
     task_id: int
@@ -34,6 +35,7 @@ class CodeBlock:
 @dataclass
 class Architecture:
     """High-level architecture specification."""
+
     description: str = ""
     files: list[str] = field(default_factory=list)
     classes: dict[str, list[str]] = field(default_factory=dict)  # class_name -> [attributes]
@@ -85,9 +87,9 @@ class SharedContext:
                 "files": self.architecture.files,
                 "classes": self.architecture.classes,
                 "interfaces": self.architecture.interfaces,
-            }
+            },
         }
-        with open(self.filepath, 'w') as f:
+        with open(self.filepath, "w") as f:
             json.dump(data, f, indent=2)
 
     def set_architecture(self, architecture: Architecture):
@@ -117,9 +119,9 @@ class SharedContext:
             self.defined_functions[func] = code
 
         # Extract imports
-        for line in code.split('\n'):
+        for line in code.split("\n"):
             line = line.strip()
-            if line.startswith('import ') or line.startswith('from '):
+            if line.startswith("import ") or line.startswith("from "):
                 self.imports.add(line)
 
         self._save()
@@ -127,6 +129,7 @@ class SharedContext:
     def _extract_definitions(self, code: str) -> tuple:
         """Extract class and function names from code using AST."""
         import ast
+
         classes = []
         functions = []
 
@@ -149,6 +152,7 @@ class SharedContext:
     def _extract_class_definition(self, code: str, class_name: str) -> str | None:
         """Extract a specific class definition from code."""
         import ast
+
         try:
             tree = ast.parse(code)
             for node in ast.iter_child_nodes(tree):
@@ -161,6 +165,7 @@ class SharedContext:
     def _extract_function_signature(self, code: str, func_name: str) -> str | None:
         """Extract function signature (def line) from code."""
         import ast
+
         try:
             tree = ast.parse(code)
             for node in ast.iter_child_nodes(tree):
@@ -168,9 +173,9 @@ class SharedContext:
                     # Get just the first line (signature)
                     source = ast.get_source_segment(code, node)
                     if source:
-                        first_line = source.split('\n')[0]
+                        first_line = source.split("\n")[0]
                         # Clean up and return
-                        return first_line.strip().rstrip(':')
+                        return first_line.strip().rstrip(":")
         except SyntaxError:
             pass
         return None
@@ -211,10 +216,9 @@ class SharedContext:
             summary_parts.append(f"## Architecture\n{self.architecture.description}")
 
         if self.architecture.classes:
-            classes_str = "\n".join([
-                f"- {cls}: {', '.join(attrs)}"
-                for cls, attrs in self.architecture.classes.items()
-            ])
+            classes_str = "\n".join(
+                [f"- {cls}: {', '.join(attrs)}" for cls, attrs in self.architecture.classes.items()]
+            )
             summary_parts.append(f"## Planned Classes\n{classes_str}")
 
         # Already defined classes - with actual code snippets
@@ -226,20 +230,27 @@ class SharedContext:
                     class_code = self._extract_class_definition(code, cls_name)
                     if class_code:
                         # Truncate if too long
-                        lines = class_code.split('\n')
+                        lines = class_code.split("\n")
                         if len(lines) > max_code_lines:
-                            class_code = '\n'.join(lines[:max_code_lines]) + f"\n    # ... ({len(lines) - max_code_lines} more lines)"
+                            class_code = (
+                                "\n".join(lines[:max_code_lines])
+                                + f"\n    # ... ({len(lines) - max_code_lines} more lines)"
+                            )
                         classes_code.append(f"### {cls_name}\n```python\n{class_code}\n```")
 
                 if classes_code:
-                    summary_parts.append("## Already Defined Classes (DO NOT REDEFINE)\n" + "\n\n".join(classes_code))
+                    summary_parts.append(
+                        "## Already Defined Classes (DO NOT REDEFINE)\n" + "\n\n".join(classes_code)
+                    )
             else:
                 defined_str = ", ".join(self.defined_classes.keys())
-                summary_parts.append(f"## Already Defined Classes\n{defined_str}\n(Do NOT redefine these)")
+                summary_parts.append(
+                    f"## Already Defined Classes\n{defined_str}\n(Do NOT redefine these)"
+                )
 
         # Already defined functions - with signatures
         if self.defined_functions:
-            funcs = [f for f in self.defined_functions.keys() if f != 'main']
+            funcs = [f for f in self.defined_functions.keys() if f != "main"]
             if funcs and include_code:
                 func_sigs = []
                 for func_name in funcs:

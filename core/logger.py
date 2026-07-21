@@ -30,27 +30,30 @@ from typing import Any
 # Color Codes for Console Output
 # ===========================================
 
+
 class Colors:
     """ANSI color codes for terminal output."""
+
     RESET = "\033[0m"
     BOLD = "\033[1m"
 
     # Log levels
-    DEBUG = "\033[36m"     # Cyan
-    INFO = "\033[32m"      # Green
-    WARNING = "\033[33m"   # Yellow
-    ERROR = "\033[31m"     # Red
+    DEBUG = "\033[36m"  # Cyan
+    INFO = "\033[32m"  # Green
+    WARNING = "\033[33m"  # Yellow
+    ERROR = "\033[31m"  # Red
     CRITICAL = "\033[35m"  # Magenta
 
     # Components
-    AGENT = "\033[34m"     # Blue
-    TASK = "\033[36m"      # Cyan
-    TIME = "\033[90m"      # Gray
+    AGENT = "\033[34m"  # Blue
+    TASK = "\033[36m"  # Cyan
+    TIME = "\033[90m"  # Gray
 
 
 # ===========================================
 # Custom Formatter
 # ===========================================
+
 
 class ColoredFormatter(logging.Formatter):
     """
@@ -81,7 +84,7 @@ class ColoredFormatter(logging.Formatter):
         ]
 
         # Add extra fields if present
-        if hasattr(record, 'task_id'):
+        if hasattr(record, "task_id"):
             parts.insert(3, f"{Colors.TASK}(task:{record.task_id}){Colors.RESET}")
 
         return " ".join(parts)
@@ -101,13 +104,13 @@ class JSONFormatter(logging.Formatter):
         }
 
         # Add extra fields
-        for key in ['task_id', 'agent', 'error', 'code', 'status']:
+        for key in ["task_id", "agent", "error", "code", "status"]:
             if hasattr(record, key):
                 log_entry[key] = getattr(record, key)
 
         # Add exception info if present
         if record.exc_info:
-            log_entry['exception'] = self.formatException(record.exc_info)
+            log_entry["exception"] = self.formatException(record.exc_info)
 
         return json.dumps(log_entry)
 
@@ -115,6 +118,7 @@ class JSONFormatter(logging.Formatter):
 # ===========================================
 # Context-Aware Logger
 # ===========================================
+
 
 class AgentLogger:
     """
@@ -212,9 +216,9 @@ def setup_logging(
         if json_format:
             file_handler.setFormatter(JSONFormatter())
         else:
-            file_handler.setFormatter(logging.Formatter(
-                "%(asctime)s %(levelname)s [%(name)s] %(message)s"
-            ))
+            file_handler.setFormatter(
+                logging.Formatter("%(asctime)s %(levelname)s [%(name)s] %(message)s")
+            )
         root.addHandler(file_handler)
 
 

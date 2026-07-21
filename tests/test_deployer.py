@@ -13,6 +13,7 @@ from agents.deployer import (
 # Project introspection
 # ===========================================
 
+
 class TestInspection:
     def test_empty_dir(self, tmp_path):
         shape = inspect_project(tmp_path)
@@ -58,6 +59,7 @@ class TestInspection:
 # ===========================================
 # Targets
 # ===========================================
+
 
 class TestRailwayTarget:
     def test_matches_flask(self, tmp_path):
@@ -126,6 +128,7 @@ class TestStreamlitTarget:
 # ===========================================
 # Agent end-to-end
 # ===========================================
+
 
 class TestDeployerAgent:
     def test_plan_picks_railway_for_flask(self, tmp_path, monkeypatch):

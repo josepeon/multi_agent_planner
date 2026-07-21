@@ -26,10 +26,7 @@ class QAAgent:
         self.memory = Memory(filepath="output/qa_memory.json")
 
     def evaluate_code(
-        self,
-        code_result: dict[str, Any] | str,
-        temperature: float = 0.2,
-        max_tokens: int = 512
+        self, code_result: dict[str, Any] | str, temperature: float = 0.2, max_tokens: int = 512
     ) -> dict[str, str]:
         """
         Evaluate code based on execution results.
@@ -61,7 +58,9 @@ class QAAgent:
                 }
 
         # Fallback: LLM static analysis (when no execution data)
-        code_string = code_result.get("code", "") if isinstance(code_result, dict) else str(code_result)
+        code_string = (
+            code_result.get("code", "") if isinstance(code_result, dict) else str(code_result)
+        )
         return self._llm_static_analysis(code_string, temperature, max_tokens)
 
     def _get_critique(self, code_result: dict[str, Any]) -> str:
@@ -76,10 +75,7 @@ class QAAgent:
         return f"Code execution failed. Output: {result_output[:500]}"
 
     def _llm_static_analysis(
-        self,
-        code_string: str,
-        temperature: float,
-        max_tokens: int
+        self, code_string: str, temperature: float, max_tokens: int
     ) -> dict[str, str]:
         """Use LLM for static code analysis when no execution data is available."""
         cached: dict[str, str] | None = self.memory.get(code_string)
@@ -87,7 +83,9 @@ class QAAgent:
             return cached
 
         try:
-            system_message = "You are a senior Python code reviewer. Always respond with valid JSON only."
+            system_message = (
+                "You are a senior Python code reviewer. Always respond with valid JSON only."
+            )
             prompt = (
                 "You are a code reviewer. Your task is to simulate a QA evaluation of the following code. "
                 "First, check if the code would run successfully if executed (assume it is in a correct environment), "
@@ -101,24 +99,22 @@ class QAAgent:
                 user_message=prompt,
                 system_message=system_message,
                 temperature=temperature,
-                max_tokens=max_tokens
+                max_tokens=max_tokens,
             )
 
             # Extract JSON from response (handles fences and surrounding prose)
             from agents.base_agent import extract_json
+
             parsed = extract_json(response)
             if not isinstance(parsed, dict):
                 raise ValueError(f"QA response was not JSON: {response[:200]}")
 
             result: dict[str, str] = {
                 "status": "passed" if parsed.get("success", False) else "failed",
-                "critique": parsed.get("critique", "")
+                "critique": parsed.get("critique", ""),
             }
 
             self.memory.set(code_string, result)
             return result
         except Exception as e:
-            return {
-                "status": "failed",
-                "critique": str(e)
-            }
+            return {"status": "failed", "critique": str(e)}

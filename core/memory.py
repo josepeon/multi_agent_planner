@@ -35,9 +35,10 @@ class Memory:
         """Persist data to the backing JSON file."""
         if self.filepath:
             try:
-                with open(self.filepath, 'w') as f:
+                with open(self.filepath, "w") as f:
+
                     def serialize(obj: Any) -> Any:
-                        if hasattr(obj, '__dataclass_fields__'):
+                        if hasattr(obj, "__dataclass_fields__"):
                             return asdict(obj)
                         if isinstance(obj, list):
                             return [serialize(v) for v in obj]
@@ -52,8 +53,9 @@ class Memory:
 
     def set(self, key: str, value: Any) -> None:
         """Set a key-value pair in memory."""
+
         def serialize(obj: Any) -> Any:
-            if hasattr(obj, '__dataclass_fields__'):
+            if hasattr(obj, "__dataclass_fields__"):
                 return asdict(obj)
             if isinstance(obj, list):
                 return [serialize(v) for v in obj]

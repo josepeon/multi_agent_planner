@@ -20,6 +20,7 @@ from core.memory_store import (
 # Tokenization + similarity
 # ===========================================
 
+
 class TestTokenization:
     def test_tokenize_lowercases_and_extracts_words(self):
         assert _tokenize("Build a CLI Tool!") == ["build", "a", "cli", "tool"]
@@ -44,6 +45,7 @@ class TestCosine:
 # ===========================================
 # DefaultVectorBackend
 # ===========================================
+
 
 class TestDefaultBackend:
     def test_add_and_query(self, tmp_path):
@@ -98,6 +100,7 @@ class TestDefaultBackend:
 # UserMemory facade
 # ===========================================
 
+
 class TestUserMemory:
     def test_remember_and_recall(self, tmp_path, monkeypatch):
         monkeypatch.delenv("MEMORY_BACKEND", raising=False)
@@ -145,6 +148,7 @@ class TestUserMemory:
 # ProjectMemory
 # ===========================================
 
+
 class TestProjectMemory:
     def test_per_project_isolation(self, tmp_path):
         m1 = ProjectMemory("proj1", dir=str(tmp_path))
@@ -168,6 +172,7 @@ class TestProjectMemory:
 # ===========================================
 # Backend factory
 # ===========================================
+
 
 class TestBackendFactory:
     def test_default_when_env_unset(self, monkeypatch, tmp_path):

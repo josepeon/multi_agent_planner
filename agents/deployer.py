@@ -35,6 +35,7 @@ from typing import Protocol
 # Project introspection
 # ===========================================
 
+
 @dataclass
 class ProjectShape:
     """What we can tell about the generated project from its files."""
@@ -111,6 +112,7 @@ def inspect_project(root: str | Path) -> ProjectShape:
 # Deploy plan
 # ===========================================
 
+
 @dataclass
 class DeploymentArtifact:
     """A file the deployer will write before deploying."""
@@ -146,6 +148,7 @@ class DeploymentPlan:
 # Targets
 # ===========================================
 
+
 class DeployTarget(Protocol):
     name: str
 
@@ -164,9 +167,7 @@ class RailwayTarget:
     def plan(self, project: ProjectShape) -> DeploymentPlan:
         # Pick a sensible default startup command
         if project.has_fastapi:
-            start_cmd = (
-                "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"
-            )
+            start_cmd = "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"
         else:
             start_cmd = "gunicorn -b 0.0.0.0:${PORT:-8000} main:app"
 
@@ -179,9 +180,9 @@ class RailwayTarget:
                 relative_path="railway.toml",
                 content=(
                     "[deploy]\n"
-                    f"startCommand = \"{start_cmd}\"\n"
-                    "healthcheckPath = \"/\"\n"
-                    "restartPolicyType = \"on_failure\"\n"
+                    f'startCommand = "{start_cmd}"\n'
+                    'healthcheckPath = "/"\n'
+                    'restartPolicyType = "on_failure"\n'
                     "restartPolicyMaxRetries = 3\n"
                 ),
             ),
@@ -266,12 +267,12 @@ class VercelTarget:
                 DeploymentArtifact(
                     relative_path="vercel.json",
                     content=(
-                        '{\n'
+                        "{\n"
                         '  "version": 2,\n'
                         '  "builds": [\n'
                         '    {"src": "api/*.py", "use": "@vercel/python"}\n'
-                        '  ]\n'
-                        '}\n'
+                        "  ]\n"
+                        "}\n"
                     ),
                 )
             ],
@@ -300,9 +301,9 @@ class ModalTarget:
             content=(
                 "import modal\n\n"
                 "image = modal.Image.debian_slim().pip_install_from_requirements(\n"
-                "    \"requirements.txt\" if __import__('os').path.exists(\"requirements.txt\") else []\n"
+                '    "requirements.txt" if __import__(\'os\').path.exists("requirements.txt") else []\n'
                 ")\n\n"
-                "app = modal.App(\"generated-project\", image=image)\n\n"
+                'app = modal.App("generated-project", image=image)\n\n'
                 "@app.function()\n"
                 "def main():\n"
                 "    from main import main as user_main\n"
@@ -351,6 +352,7 @@ _TARGETS: dict[str, DeployTarget] = {
 # ===========================================
 # Agent
 # ===========================================
+
 
 class DeployerAgent:
     """Decides the target, writes deployment artifacts, optionally deploys."""

@@ -10,10 +10,11 @@ from unittest.mock import MagicMock, patch
 # Planner Agent Tests
 # ===========================================
 
+
 class TestPlannerAgent:
     """Test Planner Agent functionality."""
 
-    @patch('agents.planner.get_llm_client')
+    @patch("agents.planner.get_llm_client")
     def test_planner_creates_tasks(self, mock_get_client):
         """Test planner creates tasks from user prompt."""
         from agents.planner import PlannerAgent
@@ -33,7 +34,7 @@ class TestPlannerAgent:
         assert isinstance(result, list)
         mock_client.chat.assert_called_once()
 
-    @patch('agents.planner.get_llm_client')
+    @patch("agents.planner.get_llm_client")
     def test_planner_uses_system_prompt(self, mock_get_client):
         """Test planner uses appropriate system prompt."""
         from agents.planner import PlannerAgent
@@ -47,19 +48,20 @@ class TestPlannerAgent:
 
         # Check that system_message was passed
         call_args = mock_client.chat.call_args
-        assert 'system_message' in call_args.kwargs or len(call_args.args) > 1
+        assert "system_message" in call_args.kwargs or len(call_args.args) > 1
 
 
 # ===========================================
 # Architect Agent Tests
 # ===========================================
 
+
 class TestArchitectAgent:
     """Test Architect Agent functionality."""
 
     def test_architect_creates_design(self):
         """Test architect creates high-level design."""
-        with patch('core.llm_provider.get_llm_client') as mock_get_client:
+        with patch("core.llm_provider.get_llm_client") as mock_get_client:
             mock_client = MagicMock()
             mock_client.chat.return_value = """{
                 "description": "Simple architecture",
@@ -72,10 +74,13 @@ class TestArchitectAgent:
             from agents.architect import ArchitectAgent
 
             agent = ArchitectAgent()
-            result = agent.design("Todo list application", [
-                "Create todo item class",
-                "Create todo manager",
-            ])
+            result = agent.design(
+                "Todo list application",
+                [
+                    "Create todo item class",
+                    "Create todo manager",
+                ],
+            )
 
             # Result is an Architecture object
             assert result is not None
@@ -86,12 +91,13 @@ class TestArchitectAgent:
 # Developer Agent Tests
 # ===========================================
 
+
 class TestDeveloperAgent:
     """Test Developer Agent functionality."""
 
     def test_developer_generates_code(self):
         """Test developer generates code using write_code method."""
-        with patch('core.llm_provider.get_llm_client') as mock_get_client:
+        with patch("core.llm_provider.get_llm_client") as mock_get_client:
             mock_client = MagicMock()
             mock_client.chat.return_value = """
 class Calculator:
@@ -112,7 +118,7 @@ print("Calculator created")
 
     def test_developer_handles_feedback(self):
         """Test developer incorporates feedback on retry."""
-        with patch('core.llm_provider.get_llm_client') as mock_get_client:
+        with patch("core.llm_provider.get_llm_client") as mock_get_client:
             mock_client = MagicMock()
             mock_client.chat.return_value = """
 def add(a, b):
@@ -124,8 +130,7 @@ def add(a, b):
 
             agent = DeveloperAgent()
             result = agent.write_code(
-                "Create an add function",
-                feedback_message="Previous version had syntax error"
+                "Create an add function", feedback_message="Previous version had syntax error"
             )
 
             assert "def add" in result
@@ -135,34 +140,31 @@ def add(a, b):
 # QA Agent Tests
 # ===========================================
 
+
 class TestQAAgent:
     """Test QA Agent functionality."""
 
     def test_qa_validates_passed_code(self):
         """Test QA validates code that passed sandbox execution."""
-        with patch('core.llm_provider.get_llm_client'):
+        with patch("core.llm_provider.get_llm_client"):
             from agents.qa import QAAgent
 
             agent = QAAgent()
-            code_result = {
-                "status": "passed",
-                "result": "Test output",
-                "code": "print('hello')"
-            }
+            code_result = {"status": "passed", "result": "Test output", "code": "print('hello')"}
             result = agent.evaluate_code(code_result)
 
             assert result["status"] == "passed"
 
     def test_qa_reports_failed_code(self):
         """Test QA reports code that failed execution."""
-        with patch('core.llm_provider.get_llm_client'):
+        with patch("core.llm_provider.get_llm_client"):
             from agents.qa import QAAgent
 
             agent = QAAgent()
             code_result = {
                 "status": "failed",
                 "result": "Error: ZeroDivisionError",
-                "code": "x = 1/0"
+                "code": "x = 1/0",
             }
             result = agent.evaluate_code(code_result)
 
@@ -174,12 +176,13 @@ class TestQAAgent:
 # Critic Agent Tests
 # ===========================================
 
+
 class TestCriticAgent:
     """Test Critic Agent functionality."""
 
     def test_critic_provides_feedback(self):
         """Test critic provides feedback using review method."""
-        with patch('core.llm_provider.get_llm_client') as mock_get_client:
+        with patch("core.llm_provider.get_llm_client") as mock_get_client:
             mock_client = MagicMock()
             mock_client.chat.return_value = """
             Issues found:
@@ -194,7 +197,7 @@ class TestCriticAgent:
             feedback = agent.review(
                 task_description="Parse JSON",
                 code="data = json.loads(input_str)",
-                error_message="NameError: name 'json' is not defined"
+                error_message="NameError: name 'json' is not defined",
             )
 
             assert isinstance(feedback, str)
@@ -205,12 +208,13 @@ class TestCriticAgent:
 # Integrator Agent Tests
 # ===========================================
 
+
 class TestIntegratorAgent:
     """Test Integrator Agent functionality."""
 
     def test_integrator_merges_code(self):
         """Test integrator merges multiple task codes from session log."""
-        with patch('core.llm_provider.get_llm_client') as mock_get_client:
+        with patch("core.llm_provider.get_llm_client") as mock_get_client:
             mock_client = MagicMock()
             mock_client.chat.return_value = """
 class Calculator:
@@ -232,9 +236,17 @@ if __name__ == "__main__":
             session_log = {
                 "prompt": "Create a calculator",
                 "tasks": [
-                    {"task": "Add function", "code": "def add(a, b): return a + b", "status": "passed"},
-                    {"task": "Multiply function", "code": "def multiply(a, b): return a * b", "status": "passed"},
-                ]
+                    {
+                        "task": "Add function",
+                        "code": "def add(a, b): return a + b",
+                        "status": "passed",
+                    },
+                    {
+                        "task": "Multiply function",
+                        "code": "def multiply(a, b): return a * b",
+                        "status": "passed",
+                    },
+                ],
             }
             result = agent.integrate(session_log)
 
@@ -242,7 +254,7 @@ if __name__ == "__main__":
 
     def test_integrator_handles_empty_session_log(self):
         """Test integrator handles empty session log."""
-        with patch('core.llm_provider.get_llm_client'):
+        with patch("core.llm_provider.get_llm_client"):
             from agents.integrator import IntegratorAgent
 
             agent = IntegratorAgent()
@@ -253,14 +265,12 @@ if __name__ == "__main__":
 
     def test_integrator_single_block(self):
         """Test integrator with single code block."""
-        with patch('core.llm_provider.get_llm_client'):
+        with patch("core.llm_provider.get_llm_client"):
             from agents.integrator import IntegratorAgent
 
             agent = IntegratorAgent()
             session_log = {
-                "tasks": [
-                    {"task": "Test", "code": "print('hello')", "status": "passed"}
-                ]
+                "tasks": [{"task": "Test", "code": "print('hello')", "status": "passed"}]
             }
             result = agent.integrate(session_log)
 
@@ -271,12 +281,13 @@ if __name__ == "__main__":
 # Test Generator Agent Tests
 # ===========================================
 
+
 class TestTestGeneratorAgent:
     """Test Test Generator Agent functionality."""
 
     def test_generator_creates_tests(self):
         """Test generator creates pytest tests."""
-        with patch('core.llm_provider.get_llm_client') as mock_get_client:
+        with patch("core.llm_provider.get_llm_client") as mock_get_client:
             mock_client = MagicMock()
             mock_client.chat.return_value = """
 import pytest
@@ -303,12 +314,13 @@ def test_add_negative():
 # Documenter Agent Tests
 # ===========================================
 
+
 class TestDocumenterAgent:
     """Test Documenter Agent functionality."""
 
     def test_documenter_creates_readme(self):
         """Test documenter creates README using generate_readme method."""
-        with patch('core.llm_provider.get_llm_client') as mock_get_client:
+        with patch("core.llm_provider.get_llm_client") as mock_get_client:
             mock_client = MagicMock()
             mock_client.chat.return_value = """
 # Calculator
@@ -339,6 +351,7 @@ result = calc.add(2, 3)
 # ===========================================
 # Edge Cases
 # ===========================================
+
 
 class TestEdgeCases:
     """Test edge cases and error handling."""

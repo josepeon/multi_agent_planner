@@ -47,6 +47,7 @@ class WebSearchBackend(Protocol):
 # No-op (default)
 # ===========================================
 
+
 class NoOpBackend:
     """Always returns []. Used when no key is configured.
 
@@ -66,6 +67,7 @@ class NoOpBackend:
 # ===========================================
 # Tavily
 # ===========================================
+
 
 class TavilyBackend:
     """Tavily Search API adapter. Lazy-imports ``tavily``.
@@ -93,30 +95,29 @@ class TavilyBackend:
                 "Install with: pip install tavily-python"
             ) from exc
         if not self.api_key:
-            raise RuntimeError(
-                "TavilyBackend has no API key. Set TAVILY_API_KEY in the env."
-            )
+            raise RuntimeError("TavilyBackend has no API key. Set TAVILY_API_KEY in the env.")
         self._client = TavilyClient(api_key=self.api_key)
 
     def search(self, query: str, k: int = 5) -> list[SearchResult]:
         self._ensure()
-        response = self._client.search(
-            query=query, max_results=k, search_depth="basic"
-        )
+        response = self._client.search(query=query, max_results=k, search_depth="basic")
         results = []
         for r in response.get("results", []):
-            results.append(SearchResult(
-                title=r.get("title", ""),
-                url=r.get("url", ""),
-                snippet=r.get("content", ""),
-                score=float(r.get("score", 0.0)),
-            ))
+            results.append(
+                SearchResult(
+                    title=r.get("title", ""),
+                    url=r.get("url", ""),
+                    snippet=r.get("content", ""),
+                    score=float(r.get("score", 0.0)),
+                )
+            )
         return results
 
 
 # ===========================================
 # Brave Search
 # ===========================================
+
 
 class BraveBackend:
     """Brave Search API adapter. Plain HTTP — no SDK dep.
@@ -135,9 +136,7 @@ class BraveBackend:
 
     def search(self, query: str, k: int = 5) -> list[SearchResult]:
         if not self.api_key:
-            raise RuntimeError(
-                "BraveBackend has no API key. Set BRAVE_API_KEY in the env."
-            )
+            raise RuntimeError("BraveBackend has no API key. Set BRAVE_API_KEY in the env.")
         import requests
 
         headers = {
@@ -151,17 +150,20 @@ class BraveBackend:
 
         out = []
         for item in (data.get("web", {}).get("results", []) or [])[:k]:
-            out.append(SearchResult(
-                title=item.get("title", ""),
-                url=item.get("url", ""),
-                snippet=item.get("description", ""),
-            ))
+            out.append(
+                SearchResult(
+                    title=item.get("title", ""),
+                    url=item.get("url", ""),
+                    snippet=item.get("description", ""),
+                )
+            )
         return out
 
 
 # ===========================================
 # Factory
 # ===========================================
+
 
 def get_search_backend() -> WebSearchBackend:
     """Pick a backend based on env. Priority: Tavily > Brave > NoOp.

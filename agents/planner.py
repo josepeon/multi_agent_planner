@@ -67,7 +67,7 @@ enough that a developer can implement it without guessing."""
             output = self.client.chat(
                 user_message=user_message,
                 system_message=system_message,
-                temperature=self.temperature
+                temperature=self.temperature,
             )
         except Exception as e:
             return [f"LLM API error: {str(e)}"]

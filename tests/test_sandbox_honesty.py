@@ -26,6 +26,7 @@ from core.sandbox import (
 # Canonical name + alias
 # ===========================================
 
+
 class TestNaming:
     def test_canonical_name_resolves(self):
         assert ExecutionMethod("crash_isolated") is ExecutionMethod.CRASH_ISOLATED
@@ -42,6 +43,7 @@ class TestNaming:
 # ===========================================
 # Forbid flag
 # ===========================================
+
 
 class TestForbidFlag:
     def test_forbidden_when_env_set(self, monkeypatch):
@@ -66,6 +68,7 @@ class TestForbidFlag:
 # ===========================================
 # Behavior: forbid flag short-circuits
 # ===========================================
+
 
 class TestForbidBehavior:
     def test_direct_crash_isolated_call_is_blocked(self, monkeypatch):
@@ -94,9 +97,7 @@ class TestForbidBehavior:
         result = execute_code_safely(code, method="restricted")
         assert result["method_used"] != "crash_isolated_forbidden"
 
-    def test_restricted_path_unaffected_by_flag_when_no_fallback_needed(
-        self, monkeypatch
-    ):
+    def test_restricted_path_unaffected_by_flag_when_no_fallback_needed(self, monkeypatch):
         # Simple code that runs in pure restricted mode shouldn't be affected
         # even when the forbid flag is set.
         monkeypatch.setenv(FORBID_CRASH_ISOLATED_ENV, "1")

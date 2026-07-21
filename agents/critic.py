@@ -5,7 +5,6 @@ Critic Agent Module
 Reviews code and provides constructive feedback for failed execution attempts.
 """
 
-
 from core.cache import BoundedCache
 from core.llm_provider import BaseLLMClient, get_llm_client
 
@@ -18,9 +17,7 @@ class CriticAgent:
     memory: BoundedCache
 
     def __init__(
-        self,
-        temperature: float = 0.3,
-        memory_path: str = "memory/critic_memory.json"
+        self, temperature: float = 0.3, memory_path: str = "memory/critic_memory.json"
     ) -> None:
         self.temperature = temperature
         self.client = get_llm_client(temperature=temperature, max_tokens=1024, role="critic")
@@ -66,7 +63,7 @@ class CriticAgent:
             result: str = self.client.chat(
                 user_message=user_message,
                 system_message=system_message,
-                temperature=self.temperature
+                temperature=self.temperature,
             )
             self.memory.set(cache_key, result)
             return result
@@ -86,11 +83,7 @@ class CriticAgent:
             "and idiomatic style relative to the task. Respond with ONLY the "
             "number, nothing else."
         )
-        user_message = (
-            f"Task: {task_description}\n\n"
-            f"Code:\n{code}\n\n"
-            f"Score (0-10):"
-        )
+        user_message = f"Task: {task_description}\n\nCode:\n{code}\n\nScore (0-10):"
         try:
             raw = self.client.chat(
                 user_message=user_message,

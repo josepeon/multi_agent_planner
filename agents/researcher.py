@@ -63,9 +63,7 @@ class ResearcherAgent:
         results_per_query: int = 3,
     ) -> None:
         self.backend = backend or get_search_backend()
-        self.client = client or get_llm_client(
-            temperature=0.2, max_tokens=512, role="researcher"
-        )
+        self.client = client or get_llm_client(temperature=0.2, max_tokens=512, role="researcher")
         self.max_queries = max_queries
         self.results_per_query = results_per_query
 
@@ -114,11 +112,7 @@ class ResearcherAgent:
             "code generator might otherwise get wrong. Output 2-3 queries, "
             "one per line, no numbering, no quotes."
         )
-        user = (
-            f"Project: {prompt}\n\n"
-            f"Modules:\n{tasks_block}\n\n"
-            f"Search queries:"
-        )
+        user = f"Project: {prompt}\n\nModules:\n{tasks_block}\n\nSearch queries:"
         try:
             with attribute("researcher"):
                 raw = self.client.chat(user_message=user, system_message=system)
@@ -129,7 +123,7 @@ class ResearcherAgent:
         for line in raw.splitlines():
             line = line.strip()
             line = re.sub(r"^[\d\.\-•*\s]+", "", line)
-            line = line.strip(' "\'')
+            line = line.strip(" \"'")
             if line:
                 queries.append(line)
             if len(queries) >= self.max_queries:

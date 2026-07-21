@@ -54,7 +54,7 @@ class DeveloperAgent:
         task_description: str,
         feedback_message: str | None = None,
         temperature: float = 0.3,
-        max_tokens: int = 2048
+        max_tokens: int = 2048,
     ) -> str:
         """
         Generate Python code for a given task description.
@@ -170,7 +170,7 @@ class DeveloperAgent:
             }
 
         # Skip execution for GUI code that can't run headless
-        if any(pattern in code for pattern in ['mainloop()', 'tk.mainloop', '.mainloop()']):
+        if any(pattern in code for pattern in ["mainloop()", "tk.mainloop", ".mainloop()"]):
             return {
                 "output": "GUI code - skipping execution (mainloop detected)",
                 "passed": True,  # Syntax is valid, consider it passed
@@ -191,10 +191,7 @@ class DeveloperAgent:
         }
 
     def develop(
-        self,
-        task: Task,
-        critic: Any | None = None,
-        feedback_message: str | None = None
+        self, task: Task, critic: Any | None = None, feedback_message: str | None = None
     ) -> dict[str, Any]:
         """
         Develop code for a task with optional critic feedback loop.

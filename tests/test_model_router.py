@@ -24,6 +24,7 @@ def _reset_router():
 # Parsing
 # ===========================================
 
+
 class TestParse:
     def test_provider_slash_model(self):
         c = _parse_model_string("groq/llama-3.3-70b-versatile")
@@ -44,6 +45,7 @@ class TestParse:
 # ===========================================
 # YAML loader
 # ===========================================
+
 
 class TestYamlLoader:
     def test_loads_simple_routes(self, tmp_path):
@@ -68,6 +70,7 @@ class TestYamlLoader:
 # ===========================================
 # ModelRouter
 # ===========================================
+
 
 class TestRouter:
     def test_builtin_defaults_present(self):
@@ -108,6 +111,7 @@ class TestRouter:
 # Module-level loader + reset
 # ===========================================
 
+
 class TestModuleLoader:
     def test_get_router_is_cached(self):
         a = mr.get_router()
@@ -125,6 +129,7 @@ class TestModuleLoader:
 # get_llm_client integration (role -> routing)
 # ===========================================
 
+
 class TestGetLlmClientWithRole:
     def test_role_routes_to_choice_model(self, monkeypatch):
         # We don't construct a real client; just verify config.model gets set
@@ -137,8 +142,11 @@ class TestGetLlmClientWithRole:
                 captured["model"] = config.model
                 captured["provider"] = config.provider
 
-            def chat(self, *a, **k): return ""
-            def chat_with_messages(self, *a, **k): return ""
+            def chat(self, *a, **k):
+                return ""
+
+            def chat_with_messages(self, *a, **k):
+                return ""
 
         monkeypatch.setitem(llm_provider.PROVIDERS, "groq", StubClient)
         monkeypatch.setenv("MODEL_FOR_documenter", "groq/llama-3.1-8b-instant")
@@ -156,33 +164,37 @@ class TestGetLlmClientWithRole:
             def __init__(self, config):
                 captured["model"] = config.model
 
-            def chat(self, *a, **k): return ""
-            def chat_with_messages(self, *a, **k): return ""
+            def chat(self, *a, **k):
+                return ""
+
+            def chat_with_messages(self, *a, **k):
+                return ""
 
         monkeypatch.setitem(llm_provider.PROVIDERS, "openai", StubClient)
         # Even though role says one thing, explicit model wins
         monkeypatch.setenv("MODEL_FOR_documenter", "groq/something")
-        llm_provider.get_llm_client(
-            role="documenter", provider="openai", model="gpt-4o-mini"
-        )
+        llm_provider.get_llm_client(role="documenter", provider="openai", model="gpt-4o-mini")
         assert captured["model"] == "gpt-4o-mini"
 
 
 class TestSchemeParsing:
     def test_scheme_form_parses_provider_correctly(self):
         from core.model_router import _parse_model_string
+
         choice = _parse_model_string("mlx://path/to/adapter")
         assert choice.provider == "mlx"
         assert choice.model == "path/to/adapter"
 
     def test_plain_slash_form_still_works(self):
         from core.model_router import _parse_model_string
+
         choice = _parse_model_string("groq/llama-3.3-70b-versatile")
         assert choice.provider == "groq"
         assert choice.model == "llama-3.3-70b-versatile"
 
     def test_inline_comment_stripped_from_yaml_value(self, tmp_path):
         from core.model_router import _read_yaml_routes
+
         cfg = tmp_path / "routes.yml"
         cfg.write_text("planner: groq/llama-3.3-70b-versatile  # the fast one\n")
         routes = _read_yaml_routes(str(cfg))

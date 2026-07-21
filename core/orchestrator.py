@@ -76,6 +76,7 @@ def _run_checkpoint(
         return decision.hint, "regenerate"
     return artifact, "approved"
 
+
 # Initialize agents
 planner: PlannerAgent = PlannerAgent()
 architect: ArchitectAgent = ArchitectAgent()
@@ -102,9 +103,7 @@ BEST_OF_N: int = int(os.environ.get("BEST_OF_N", "1"))
 def _develop_one_candidate(task, feedback, context_summary):
     """Single develop+QA attempt. Used both standalone and inside best-of-N."""
     context_message = (
-        f"\n\n## Context from previous tasks:\n{context_summary}"
-        if context_summary
-        else ""
+        f"\n\n## Context from previous tasks:\n{context_summary}" if context_summary else ""
     )
     with attribute("developer"):
         if feedback:
@@ -116,7 +115,7 @@ def _develop_one_candidate(task, feedback, context_summary):
 
     with attribute("qa"):
         qa_result = qa_checker.evaluate_code(code)
-    passed = qa_result.get('status') == 'passed'
+    passed = qa_result.get("status") == "passed"
     return code, qa_result, passed
 
 
@@ -130,8 +129,7 @@ def _best_of_n(task: Task, feedback, context_summary, n: int) -> dict[str, Any]:
     candidates: list[tuple[dict, dict, bool]] = []
     with ThreadPoolExecutor(max_workers=min(n, 4)) as pool:
         futures = [
-            pool.submit(_develop_one_candidate, task, feedback, context_summary)
-            for _ in range(n)
+            pool.submit(_develop_one_candidate, task, feedback, context_summary) for _ in range(n)
         ]
         for fut in as_completed(futures):
             try:
@@ -205,9 +203,7 @@ def develop_with_retry(
                 f"(winning score {bon.get('winning_score', 0):.1f})"
             )
         else:
-            code, qa_result, passed = _develop_one_candidate(
-                task, feedback, context_summary
-            )
+            code, qa_result, passed = _develop_one_candidate(task, feedback, context_summary)
             print(f"\n  Generated Code (Attempt {attempt + 1}/{max_retries}):")
             print(f"  {code}\n")
 
@@ -224,7 +220,7 @@ def develop_with_retry(
                 "qa_result": qa_result,
                 "critique": "",
                 "attempts": attempt + 1,
-                "passed": True
+                "passed": True,
             }
 
         # Get critic feedback for retry
@@ -233,8 +229,10 @@ def develop_with_retry(
             # not the dict repr (which polluted both prompt and cache key).
             code_str = code.get("code", "") if isinstance(code, dict) else code
             with attribute("critic"):
-                critique = critic.review(task.description, code_str, qa_result.get('result'))
-            feedback = f"Previous attempt failed. Critic feedback:\n{critique}\n\nPlease fix these issues."
+                critique = critic.review(task.description, code_str, qa_result.get("result"))
+            feedback = (
+                f"Previous attempt failed. Critic feedback:\n{critique}\n\nPlease fix these issues."
+            )
             print(f"\n  Critic Feedback (will retry):\n  {critique[:200]}...")
 
     # Return best attempt after all retries exhausted
@@ -243,7 +241,7 @@ def develop_with_retry(
         "qa_result": best_qa_result,
         "critique": critique,
         "attempts": max_retries,
-        "passed": False
+        "passed": False,
     }
 
 
@@ -277,7 +275,10 @@ def run_pipeline(
 
     if use_dag is None:
         use_dag = os.environ.get("USE_DAG_PIPELINE", "").strip().lower() in {
-            "1", "true", "yes", "on",
+            "1",
+            "true",
+            "yes",
+            "on",
         }
     if use_dag:
         from core.orchestrator_dag import run_pipeline_dag
@@ -344,27 +345,31 @@ def run_pipeline(
             continue
 
     memory.set("last_tasks", tasks)
-    emit_event(job_id, "stage_finished", {
-        "stage": "planner",
-        "agent": "PlannerAgent",
-        "ok": True,
-        "summary": f"{len(tasks)} module(s)",
-        "tasks": [t.description if isinstance(t, Task) else str(t) for t in tasks],
-    })
+    emit_event(
+        job_id,
+        "stage_finished",
+        {
+            "stage": "planner",
+            "agent": "PlannerAgent",
+            "ok": True,
+            "summary": f"{len(tasks)} module(s)",
+            "tasks": [t.description if isinstance(t, Task) else str(t) for t in tasks],
+        },
+    )
 
     print("PLANNING STAGE")
     for idx, t in enumerate(tasks, 1):
         description = t.description if isinstance(t, Task) else t
-        clean_description = description.strip().lstrip('*').strip()
+        clean_description = description.strip().lstrip("*").strip()
         print(f"  Task {idx}: {clean_description}")
         if not isinstance(t, Task):
             t = Task(id=idx - 1, description=description)
             tasks[idx - 1] = t
 
     # Architecture design phase
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("ARCHITECTURE STAGE")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     emit_event(job_id, "stage_started", {"stage": "architect", "agent": "ArchitectAgent"})
     task_descriptions = [t.description if isinstance(t, Task) else t for t in tasks]
 
@@ -373,20 +378,23 @@ def run_pipeline(
     research_brief = researcher.research(original_prompt, task_descriptions)
     if not research_brief.empty:
         research_brief_text = research_brief.render()
-        emit_event(job_id, "stage_finished", {
-            "stage": "researcher",
-            "agent": "ResearcherAgent",
-            "ok": True,
-            "summary": f"{len(research_brief.results)} source(s), "
-                       f"{len(research_brief.queries)} quer(ies)",
-        })
+        emit_event(
+            job_id,
+            "stage_finished",
+            {
+                "stage": "researcher",
+                "agent": "ResearcherAgent",
+                "ok": True,
+                "summary": f"{len(research_brief.results)} source(s), "
+                f"{len(research_brief.queries)} quer(ies)",
+            },
+        )
 
     arch_hint = ""
     for regen in range(MAX_CHECKPOINT_REGEN_TRIES + 1):
         with attribute("architect"):
             architecture = architect.design(
-                original_prompt
-                + (f"\n\nUser hint: {arch_hint}" if arch_hint else ""),
+                original_prompt + (f"\n\nUser hint: {arch_hint}" if arch_hint else ""),
                 task_descriptions,
                 research_brief=research_brief_text,
             )
@@ -410,13 +418,21 @@ def run_pipeline(
                 break
             continue
 
-    print(architect.get_design_summary() if hasattr(architect, "get_design_summary") else str(architecture))
-    emit_event(job_id, "stage_finished", {
-        "stage": "architect",
-        "agent": "ArchitectAgent",
-        "ok": True,
-        "summary": str(getattr(architecture, "description", architecture))[:200],
-    })
+    print(
+        architect.get_design_summary()
+        if hasattr(architect, "get_design_summary")
+        else str(architecture)
+    )
+    emit_event(
+        job_id,
+        "stage_finished",
+        {
+            "stage": "architect",
+            "agent": "ArchitectAgent",
+            "ok": True,
+            "summary": str(getattr(architecture, "description", architecture))[:200],
+        },
+    )
     # Record the architecture decision for future runs against this prompt
     arch_text = str(getattr(architecture, "description", architecture))
     if arch_text:
@@ -430,10 +446,10 @@ def run_pipeline(
     failed_count = 0
 
     for task in tasks:
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print("DEVELOPMENT + QA STAGE")
         print(f"Task {task.id}: {task.description}")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
 
         # Develop with retry loop
         result = develop_with_retry(task, MAX_RETRIES)
@@ -449,11 +465,15 @@ def run_pipeline(
             passed_count += 1
             task.status = "complete"
             print(f"\n[OK] Task {task.id} PASSED (after {result['attempts']} attempt(s))")
-            emit_event(job_id, "task_passed", {
-                "task_id": task.id,
-                "description": task.description[:80],
-                "attempts": result["attempts"],
-            })
+            emit_event(
+                job_id,
+                "task_passed",
+                {
+                    "task_id": task.id,
+                    "description": task.description[:80],
+                    "attempts": result["attempts"],
+                },
+            )
             # Persist the passing decision for future runs against this prompt
             project_mem.remember(
                 f"Module passing on attempt {result['attempts']}: {task.description}",
@@ -462,39 +482,42 @@ def run_pipeline(
             )
             # Store successful code in shared context for future tasks
             shared_context.add_generated_code(
-                task_id=task.id,
-                name=task.description[:50],
-                code=code_str,
-                status="passed"
+                task_id=task.id, name=task.description[:50], code=code_str, status="passed"
             )
         else:
             failed_count += 1
             task.status = "failed"
             print(f"\n[FAIL] Task {task.id} FAILED (after {result['attempts']} attempts)")
-            emit_event(job_id, "task_failed", {
-                "task_id": task.id,
-                "description": task.description[:80],
-                "attempts": result["attempts"],
-            })
+            emit_event(
+                job_id,
+                "task_failed",
+                {
+                    "task_id": task.id,
+                    "description": task.description[:80],
+                    "attempts": result["attempts"],
+                },
+            )
             if critique:
                 print(f"\nFinal Critique:\n{critique}")
 
         task.result = code
 
-        session_log["tasks"].append({
-            "task": task.description,
-            "code": code_str,
-            "result": code.get("result") if isinstance(code, dict) else "",
-            "status": code.get("status") if isinstance(code, dict) else task.status,
-            "qa_result": qa_result,
-            "critique": critique,
-            "attempts": result["attempts"],
-        })
+        session_log["tasks"].append(
+            {
+                "task": task.description,
+                "code": code_str,
+                "result": code.get("result") if isinstance(code, dict) else "",
+                "status": code.get("status") if isinstance(code, dict) else task.status,
+                "qa_result": qa_result,
+                "critique": critique,
+                "attempts": result["attempts"],
+            }
+        )
 
     # Summary
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"SUMMARY: {passed_count} passed, {failed_count} failed out of {len(tasks)} tasks")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     # Save log
     with open(save_path, "w") as f:
@@ -502,9 +525,9 @@ def run_pipeline(
     print(f"\nSession log saved to: {save_path}")
 
     # Integrate final code using the Integrator agent
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("INTEGRATION STAGE")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     # Choose single or multi-file output
     with attribute("integrator"):
@@ -524,9 +547,9 @@ def run_pipeline(
             print("\nFinal program saved to: output/final_program.py")
 
     # Run test generation and documentation in parallel
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("TEST + DOCUMENTATION STAGE (Parallel)")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     def generate_tests_task():
         """Generate pytest tests for the final code."""
@@ -545,7 +568,7 @@ def run_pipeline(
     with ThreadPoolExecutor(max_workers=2) as executor:
         futures = {
             executor.submit(generate_tests_task): "tests",
-            executor.submit(generate_docs_task): "docs"
+            executor.submit(generate_docs_task): "docs",
         }
 
         for future in as_completed(futures):
@@ -578,18 +601,18 @@ def run_pipeline(
 
     # Verification stage: actually run the generated tests against the
     # generated program. Without this step, "tests pass" is unverified.
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("TEST EXECUTION STAGE")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     test_result = run_generated_tests(final_code, test_code)
     print(render_summary(test_result))
     write_result_log(test_result, "output/test_results.json")
     session_log["test_run"] = test_result.as_dict()
 
     # Per-run cost & token usage report
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("COST & TOKEN REPORT")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print(cost_tracker.render_summary())
     cost_snapshot = cost_tracker.to_dict()
     session_log["cost"] = cost_snapshot
@@ -603,13 +626,18 @@ def run_pipeline(
 
     emit_event(job_id, "test_run", test_result.as_dict())
     emit_event(job_id, "cost", cost_snapshot)
-    emit_event(job_id, "run_finished", {
-        "duration_s": __import__("time").time() - run_start_ts,
-        "ok": test_result.all_passed,
-    })
+    emit_event(
+        job_id,
+        "run_finished",
+        {
+            "duration_s": __import__("time").time() - run_start_ts,
+            "ok": test_result.all_passed,
+        },
+    )
     get_bus().end(job_id)
 
     return final_code
+
 
 # Export run_pipeline as run_orchestrator for import
 run_orchestrator = run_pipeline

@@ -57,6 +57,7 @@ class Interaction:
 # Logger
 # ===========================================
 
+
 class InteractionLog:
     """Thread-safe append-only JSONL recorder."""
 
@@ -137,23 +138,26 @@ def record(
     metadata: dict[str, Any] | None = None,
 ) -> None:
     """Convenience: append an interaction to the module-level log."""
-    _log.record(Interaction(
-        role=role,
-        provider=provider,
-        model=model,
-        system_message=system_message,
-        user_message=user_message,
-        response=response,
-        prompt_tokens=prompt_tokens,
-        completion_tokens=completion_tokens,
-        duration_seconds=duration_seconds,
-        metadata=metadata or {},
-    ))
+    _log.record(
+        Interaction(
+            role=role,
+            provider=provider,
+            model=model,
+            system_message=system_message,
+            user_message=user_message,
+            response=response,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            duration_seconds=duration_seconds,
+            metadata=metadata or {},
+        )
+    )
 
 
 # ===========================================
 # Export to self-improving-agent format
 # ===========================================
+
 
 def export_for_sia(
     role: str,

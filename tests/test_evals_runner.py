@@ -9,11 +9,7 @@ from evals.run import main
 
 
 def _write_corpus(path):
-    path.write_text(
-        "- id: sample\n"
-        "  prompt: build a thing\n"
-        "  rubrics: [compiles, tests_present]\n"
-    )
+    path.write_text("- id: sample\n  prompt: build a thing\n  rubrics: [compiles, tests_present]\n")
 
 
 def test_offline_scores_existing_artifacts(tmp_path, monkeypatch):

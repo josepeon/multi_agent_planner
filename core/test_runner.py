@@ -99,13 +99,9 @@ def _looks_runnable(test_code: str) -> tuple[bool, str | None]:
     return True, None
 
 
-_FROM_IMPORT_RE = re.compile(
-    r"^from\s+([a-zA-Z_][\w]*)\s+import\b", re.MULTILINE
-)
+_FROM_IMPORT_RE = re.compile(r"^from\s+([a-zA-Z_][\w]*)\s+import\b", re.MULTILINE)
 # 'import calculator' / 'import calculator as calc' — same aliasing need
-_PLAIN_IMPORT_RE = re.compile(
-    r"^import\s+([a-zA-Z_][\w]*)(?:\s+as\s+\w+)?\s*$", re.MULTILINE
-)
+_PLAIN_IMPORT_RE = re.compile(r"^import\s+([a-zA-Z_][\w]*)(?:\s+as\s+\w+)?\s*$", re.MULTILINE)
 
 
 def _extract_imported_module_names(test_code: str) -> set[str]:
@@ -124,9 +120,24 @@ def _extract_imported_module_names(test_code: str) -> set[str]:
 # Names we never alias the program under (would shadow real packages
 # the tests legitimately import).
 _RESERVED_MODULE_NAMES = {
-    "pytest", "os", "sys", "json", "math", "random", "datetime", "typing",
-    "pathlib", "collections", "itertools", "functools", "abc",
-    "dataclasses", "enum", "re", "string", "unittest",
+    "pytest",
+    "os",
+    "sys",
+    "json",
+    "math",
+    "random",
+    "datetime",
+    "typing",
+    "pathlib",
+    "collections",
+    "itertools",
+    "functools",
+    "abc",
+    "dataclasses",
+    "enum",
+    "re",
+    "string",
+    "unittest",
 }
 
 
@@ -158,9 +169,7 @@ def run_generated_tests(
 
     # Aliases: names the test code imports from but don't match program_filename.
     extra_modules = (
-        _extract_imported_module_names(test_code)
-        - {module_stem}
-        - _RESERVED_MODULE_NAMES
+        _extract_imported_module_names(test_code) - {module_stem} - _RESERVED_MODULE_NAMES
     )
 
     with tempfile.TemporaryDirectory(prefix="map_test_run_") as tmp_str:
@@ -202,8 +211,7 @@ def run_generated_tests(
                 errors=1,
                 total=1,
                 stdout=exc.stdout or "",
-                stderr=(exc.stderr or "")
-                + f"\nTest run timed out after {timeout_seconds}s.",
+                stderr=(exc.stderr or "") + f"\nTest run timed out after {timeout_seconds}s.",
                 failure_summaries=[f"timeout after {timeout_seconds}s"],
             )
         except FileNotFoundError as exc:
@@ -257,10 +265,7 @@ def render_summary(result: TestRunResult) -> str:
     if not result.ran:
         return f"Tests not executed: {result.skip_reason or 'unknown reason'}."
     if result.all_passed:
-        return (
-            f"Tests passed: {result.passed}/{result.total} "
-            f"in {result.duration_seconds:.2f}s."
-        )
+        return f"Tests passed: {result.passed}/{result.total} in {result.duration_seconds:.2f}s."
     parts = [
         f"Tests: {result.passed} passed",
     ]
@@ -272,9 +277,7 @@ def render_summary(result: TestRunResult) -> str:
         parts.append(f"{result.skipped} skipped")
     summary = ", ".join(parts) + f" (total {result.total})"
     if result.failure_summaries:
-        summary += "\nFailures:\n  - " + "\n  - ".join(
-            result.failure_summaries[:10]
-        )
+        summary += "\nFailures:\n  - " + "\n  - ".join(result.failure_summaries[:10])
     return summary
 
 

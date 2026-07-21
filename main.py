@@ -14,6 +14,7 @@ def save_log(log_data, path="output/task_log.json"):
     with open(path, "w") as f:
         json.dump(log_data, f, indent=2)
 
+
 def main():
     memory = Memory(filepath="output/memory.json")
     while True:
@@ -39,7 +40,7 @@ def main():
             print(result)
 
             again = input("\nWould you like to build another project? (y/n): ")
-            if again.strip().lower() != 'y':
+            if again.strip().lower() != "y":
                 print("Exiting the system. Goodbye!")
                 break
 
@@ -50,6 +51,7 @@ def main():
         except KeyboardInterrupt:
             print("\n\nInterrupted. Exiting the system. Goodbye!")
             break
+
 
 if __name__ == "__main__":
     main()

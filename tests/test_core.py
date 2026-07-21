@@ -10,12 +10,14 @@ import pytest
 # Import Tests
 # ===========================================
 
+
 class TestImports:
     """Test that all modules can be imported."""
 
     def test_import_agents(self):
         """Test agent imports."""
         from agents import CriticAgent, DeveloperAgent, PlannerAgent, QAAgent
+
         assert PlannerAgent is not None
         assert DeveloperAgent is not None
         assert QAAgent is not None
@@ -30,6 +32,7 @@ class TestImports:
             get_llm_client,
             retry_with_backoff,
         )
+
         assert get_llm_client is not None
         assert execute_code_safely is not None
         assert retry_with_backoff is not None
@@ -38,32 +41,37 @@ class TestImports:
 
     def test_import_integrator(self):
         """Test integrator agent import."""
-        with patch('core.llm_provider.get_llm_client'):
+        with patch("core.llm_provider.get_llm_client"):
             from agents.integrator import IntegratorAgent
+
             assert IntegratorAgent is not None
 
     def test_import_architect(self):
         """Test architect agent import."""
-        with patch('core.llm_provider.get_llm_client'):
+        with patch("core.llm_provider.get_llm_client"):
             from agents.architect import ArchitectAgent
+
             assert ArchitectAgent is not None
 
     def test_import_test_generator(self):
         """Test test generator agent import."""
-        with patch('core.llm_provider.get_llm_client'):
+        with patch("core.llm_provider.get_llm_client"):
             from agents.test_generator import TestGeneratorAgent
+
             assert TestGeneratorAgent is not None
 
     def test_import_documenter(self):
         """Test documenter agent import."""
-        with patch('core.llm_provider.get_llm_client'):
+        with patch("core.llm_provider.get_llm_client"):
             from agents.documenter import DocumenterAgent
+
             assert DocumenterAgent is not None
 
 
 # ===========================================
 # Sandbox Tests
 # ===========================================
+
 
 class TestSandbox:
     """Test sandboxed code execution."""
@@ -72,7 +80,7 @@ class TestSandbox:
         """Test that safe code executes correctly."""
         from core.sandbox import execute_code_safely
 
-        result = execute_code_safely('print(1 + 1)')
+        result = execute_code_safely("print(1 + 1)")
         assert result["success"] is True
         assert "2" in result["output"]
 
@@ -80,7 +88,7 @@ class TestSandbox:
         """Test math module works in sandbox."""
         from core.sandbox import execute_code_safely
 
-        result = execute_code_safely('import math; print(math.sqrt(16))')
+        result = execute_code_safely("import math; print(math.sqrt(16))")
         assert result["success"] is True
         assert "4" in result["output"]
 
@@ -88,14 +96,14 @@ class TestSandbox:
         """Test that class definitions work in sandbox."""
         from core.sandbox import execute_code_safely
 
-        code = '''
+        code = """
 class Calculator:
     def add(self, a, b):
         return a + b
 
 calc = Calculator()
 print(calc.add(2, 3))
-'''
+"""
         result = execute_code_safely(code)
         assert result["success"] is True
         assert "5" in result["output"]
@@ -104,7 +112,7 @@ print(calc.add(2, 3))
         """Test that dataclasses work in sandbox."""
         from core.sandbox import execute_code_safely
 
-        code = '''
+        code = """
 from dataclasses import dataclass
 
 @dataclass
@@ -114,7 +122,7 @@ class Person:
 
 p = Person("Alice", 30)
 print(p.name, p.age)
-'''
+"""
         result = execute_code_safely(code)
         assert result["success"] is True
         assert "Alice" in result["output"]
@@ -124,7 +132,7 @@ print(p.name, p.age)
         """Test that enums work in sandbox."""
         from core.sandbox import execute_code_safely
 
-        code = '''
+        code = """
 from enum import Enum
 
 class Status(Enum):
@@ -132,7 +140,7 @@ class Status(Enum):
     DONE = "done"
 
 print(Status.PENDING.value)
-'''
+"""
         result = execute_code_safely(code)
         assert result["success"] is True
         assert "pending" in result["output"]
@@ -157,7 +165,7 @@ print(Status.PENDING.value)
         """Test that Popen is blocked."""
         from core.sandbox import execute_code_safely
 
-        result = execute_code_safely('from subprocess import Popen')
+        result = execute_code_safely("from subprocess import Popen")
         assert result["success"] is False
         assert "Security violation" in result.get("error", "")
 
@@ -165,7 +173,7 @@ print(Status.PENDING.value)
         """Test that non-whitelisted imports are blocked."""
         from core.sandbox import execute_code_safely
 
-        result = execute_code_safely('import socket')
+        result = execute_code_safely("import socket")
         assert result["success"] is False
         assert "not allowed" in result.get("error", "").lower()
 
@@ -173,7 +181,7 @@ print(Status.PENDING.value)
         """Test list comprehensions work."""
         from core.sandbox import execute_code_safely
 
-        result = execute_code_safely('print([x**2 for x in range(5)])')
+        result = execute_code_safely("print([x**2 for x in range(5)])")
         assert result["success"] is True
         assert "[0, 1, 4, 9, 16]" in result["output"]
 
@@ -181,12 +189,12 @@ print(Status.PENDING.value)
         """Test exception handling in sandbox."""
         from core.sandbox import execute_code_safely
 
-        code = '''
+        code = """
 try:
     x = 1 / 0
 except ZeroDivisionError:
     print("Caught division by zero")
-'''
+"""
         result = execute_code_safely(code)
         assert result["success"] is True
         assert "Caught division by zero" in result["output"]
@@ -195,11 +203,11 @@ except ZeroDivisionError:
         """Test JSON module works."""
         from core.sandbox import execute_code_safely
 
-        code = '''
+        code = """
 import json
 data = {"name": "test", "value": 42}
 print(json.dumps(data))
-'''
+"""
         result = execute_code_safely(code)
         assert result["success"] is True
         assert '"name": "test"' in result["output"] or '"name":"test"' in result["output"]
@@ -208,6 +216,7 @@ print(json.dumps(data))
 # ===========================================
 # Task Schema Tests
 # ===========================================
+
 
 class TestTaskSchema:
     """Test task schema."""
@@ -242,6 +251,7 @@ class TestTaskSchema:
 # Memory Tests
 # ===========================================
 
+
 class TestMemory:
     """Test memory system."""
 
@@ -273,11 +283,7 @@ class TestMemory:
         from core.memory import Memory
 
         memory = Memory(filepath=str(tmp_path / "test_memory.json"))
-        complex_data = {
-            "list": [1, 2, 3],
-            "nested": {"a": "b"},
-            "number": 42
-        }
+        complex_data = {"list": [1, 2, 3], "nested": {"a": "b"}, "number": 42}
         memory.set("complex", complex_data)
         retrieved = memory.get("complex")
         assert retrieved == complex_data
@@ -295,6 +301,7 @@ class TestMemory:
 # ===========================================
 # Retry Logic Tests
 # ===========================================
+
 
 class TestRetryLogic:
     """Test retry mechanism."""
@@ -366,6 +373,7 @@ class TestRetryLogic:
 # LLM Config Tests
 # ===========================================
 
+
 class TestLLMConfig:
     """Test LLM configuration."""
 
@@ -398,6 +406,7 @@ class TestLLMConfig:
 # Groq Client Tests (Mocked)
 # ===========================================
 
+
 class TestGroqClientMocked:
     """Test Groq client with mocked API."""
 
@@ -413,8 +422,8 @@ class TestGroqClientMocked:
         mock_client.chat.completions.create.return_value = mock_response
 
         # Patch Groq where it's imported
-        with patch('groq.Groq', return_value=mock_client):
-            with patch.dict('os.environ', {'GROQ_API_KEY': 'test-key'}):
+        with patch("groq.Groq", return_value=mock_client):
+            with patch.dict("os.environ", {"GROQ_API_KEY": "test-key"}):
                 config = LLMConfig(provider="groq")
                 client = GroqClient(config)
                 result = client.chat("Say hello")
@@ -436,11 +445,11 @@ class TestGroqClientMocked:
 
         mock_client.chat.completions.create.side_effect = [
             Exception("rate_limit exceeded"),
-            mock_response
+            mock_response,
         ]
 
-        with patch('groq.Groq', return_value=mock_client):
-            with patch.dict('os.environ', {'GROQ_API_KEY': 'test-key'}):
+        with patch("groq.Groq", return_value=mock_client):
+            with patch.dict("os.environ", {"GROQ_API_KEY": "test-key"}):
                 config = LLMConfig(provider="groq")
                 client = GroqClient(config)
                 result = client.chat("Test")
@@ -452,13 +461,14 @@ class TestGroqClientMocked:
         """Test Groq client has fallback models defined."""
         from core.llm_provider import GroqClient
 
-        assert hasattr(GroqClient, 'FALLBACK_MODELS')
+        assert hasattr(GroqClient, "FALLBACK_MODELS")
         assert len(GroqClient.FALLBACK_MODELS) >= 1
 
 
 # ===========================================
 # Shared Context Tests
 # ===========================================
+
 
 class TestSharedContext:
     """Test shared context system."""
@@ -476,10 +486,7 @@ class TestSharedContext:
 
         ctx = SharedContext(filepath=str(tmp_path / "context.json"))
         ctx.add_generated_code(
-            task_id=1,
-            name="TestClass",
-            code="class TestClass:\n    pass",
-            status="passed"
+            task_id=1, name="TestClass", code="class TestClass:\n    pass", status="passed"
         )
 
         summary = ctx.get_context_summary()
@@ -490,7 +497,9 @@ class TestSharedContext:
         from core.shared_context import SharedContext
 
         ctx = SharedContext(filepath=str(tmp_path / "context.json"))
-        ctx.defined_classes["Calculator"] = "class Calculator:\n    def add(self, a, b): return a + b"
+        ctx.defined_classes["Calculator"] = (
+            "class Calculator:\n    def add(self, a, b): return a + b"
+        )
 
         assert "Calculator" in ctx.defined_classes
 
@@ -513,6 +522,7 @@ class TestSharedContext:
 # ===========================================
 # Base Agent Tests
 # ===========================================
+
 
 class TestBaseAgent:
     """Test base agent functionality."""
@@ -541,6 +551,7 @@ class TestBaseAgent:
 # Integration Tests
 # ===========================================
 
+
 class TestIntegration:
     """Integration tests for the system."""
 
@@ -549,7 +560,7 @@ class TestIntegration:
         from core.sandbox import execute_code_safely
 
         # Typical generated code pattern
-        code = '''
+        code = """
 from dataclasses import dataclass
 from enum import Enum
 from typing import List
@@ -569,7 +580,7 @@ todos: List[Todo] = []
 todos.append(Todo("Test task", Priority.HIGH))
 print(f"Created {len(todos)} todo(s)")
 print(f"First todo: {todos[0].title}")
-'''
+"""
         result = execute_code_safely(code)
         assert result["success"] is True
         assert "Created 1 todo" in result["output"]

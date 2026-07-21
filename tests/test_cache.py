@@ -13,6 +13,7 @@ from core.cache import BoundedCache
 # Construction
 # ===========================================
 
+
 class TestConstruction:
     def test_rejects_non_positive_max_size(self):
         with pytest.raises(ValueError):
@@ -31,6 +32,7 @@ class TestConstruction:
 # ===========================================
 # LRU eviction
 # ===========================================
+
 
 class TestLRU:
     def test_eviction_at_size_cap(self, tmp_path):
@@ -70,6 +72,7 @@ class TestLRU:
 # TTL
 # ===========================================
 
+
 class TestTTL:
     def test_no_ttl_means_no_expiry(self, tmp_path):
         cache = BoundedCache(str(tmp_path / "c.json"), ttl_seconds=None)
@@ -106,6 +109,7 @@ class TestTTL:
 # ===========================================
 # Persistence
 # ===========================================
+
 
 class TestPersistence:
     def test_round_trip(self, tmp_path):
@@ -148,6 +152,7 @@ class TestPersistence:
 # Other ops
 # ===========================================
 
+
 class TestOps:
     def test_delete(self, tmp_path):
         cache = BoundedCache(str(tmp_path / "c.json"))
@@ -179,6 +184,7 @@ class TestOps:
 # ===========================================
 # Thread safety
 # ===========================================
+
 
 class TestThreadSafety:
     def test_concurrent_get_set_no_corruption(self, tmp_path):

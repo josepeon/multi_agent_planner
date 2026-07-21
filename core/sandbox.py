@@ -61,10 +61,10 @@ class ExecutionMethod(Enum):
     Both resolve to the same enum member at runtime.
     """
 
-    RESTRICTED = "restricted"            # RestrictedPython, real security
-    DOCKER = "docker"                    # Full container isolation
-    CRASH_ISOLATED = "crash_isolated"    # Subprocess: crash isolation only
-    CLOUD = "cloud"                      # Hosted sandbox (E2B); real I/O allowed
+    RESTRICTED = "restricted"  # RestrictedPython, real security
+    DOCKER = "docker"  # Full container isolation
+    CRASH_ISOLATED = "crash_isolated"  # Subprocess: crash isolation only
+    CLOUD = "cloud"  # Hosted sandbox (E2B); real I/O allowed
 
     @classmethod
     def _missing_(cls, value):  # type: ignore[override]
@@ -85,30 +85,55 @@ class ExecutionMethod(Enum):
 @dataclass
 class SandboxConfig:
     """Configuration for sandboxed execution."""
+
     method: ExecutionMethod = ExecutionMethod.RESTRICTED
     timeout: int = 30  # seconds
     max_memory_mb: int = 256
     max_output_size: int = 10000  # characters
-    allowed_imports: list[str] = field(default_factory=lambda: [
-        # Core utilities
-        "math", "random", "datetime", "json", "re", "collections",
-        "itertools", "functools", "string", "csv", "io", "statistics",
-        # Modern Python essentials
-        "uuid", "dataclasses", "typing", "enum", "pathlib",
-        "abc", "copy", "operator", "contextlib",
-        # Data structures
-        "heapq", "bisect", "array",
-        # Text processing
-        "textwrap", "difflib",
-        # Testing (commonly needed)
-        "unittest", "doctest",
-    ])
+    allowed_imports: list[str] = field(
+        default_factory=lambda: [
+            # Core utilities
+            "math",
+            "random",
+            "datetime",
+            "json",
+            "re",
+            "collections",
+            "itertools",
+            "functools",
+            "string",
+            "csv",
+            "io",
+            "statistics",
+            # Modern Python essentials
+            "uuid",
+            "dataclasses",
+            "typing",
+            "enum",
+            "pathlib",
+            "abc",
+            "copy",
+            "operator",
+            "contextlib",
+            # Data structures
+            "heapq",
+            "bisect",
+            "array",
+            # Text processing
+            "textwrap",
+            "difflib",
+            # Testing (commonly needed)
+            "unittest",
+            "doctest",
+        ]
+    )
     docker_image: str = "python:3.11-slim"
 
 
 @dataclass
 class ExecutionResult:
     """Result of sandboxed code execution."""
+
     success: bool
     output: str
     error: str | None = None
@@ -120,6 +145,7 @@ class ExecutionResult:
 # RestrictedPython Execution (Lightweight)
 # ============================================
 
+
 def _get_restricted_globals() -> dict[str, Any]:
     """Create a restricted globals dict for safe execution."""
     import builtins
@@ -127,40 +153,83 @@ def _get_restricted_globals() -> dict[str, Any]:
     # Safe builtins - includes class definition support
     safe_builtins = {
         # Class definition essentials
-        '__build_class__': builtins.__build_class__,
-        '__name__': '__main__',
-        'object': object,
-        'super': super,
-        'property': property,
-        'staticmethod': staticmethod,
-        'classmethod': classmethod,
+        "__build_class__": builtins.__build_class__,
+        "__name__": "__main__",
+        "object": object,
+        "super": super,
+        "property": property,
+        "staticmethod": staticmethod,
+        "classmethod": classmethod,
         # Standard safe builtins
-        'abs': abs, 'all': all, 'any': any, 'bin': bin, 'bool': bool,
-        'chr': chr, 'dict': dict, 'dir': dir, 'divmod': divmod,
-        'enumerate': enumerate, 'filter': filter, 'float': float,
-        'format': format, 'frozenset': frozenset, 'hash': hash,
-        'hex': hex, 'int': int, 'isinstance': isinstance,
-        'issubclass': issubclass, 'iter': iter, 'len': len,
-        'list': list, 'map': map, 'max': max, 'min': min,
-        'next': next, 'oct': oct, 'ord': ord, 'pow': pow,
-        'print': print, 'range': range, 'repr': repr, 'reversed': reversed,
-        'round': round, 'set': set, 'slice': slice, 'sorted': sorted,
-        'str': str, 'sum': sum, 'tuple': tuple, 'type': type,
-        'zip': zip, 'True': True, 'False': False, 'None': None,
+        "abs": abs,
+        "all": all,
+        "any": any,
+        "bin": bin,
+        "bool": bool,
+        "chr": chr,
+        "dict": dict,
+        "dir": dir,
+        "divmod": divmod,
+        "enumerate": enumerate,
+        "filter": filter,
+        "float": float,
+        "format": format,
+        "frozenset": frozenset,
+        "hash": hash,
+        "hex": hex,
+        "int": int,
+        "isinstance": isinstance,
+        "issubclass": issubclass,
+        "iter": iter,
+        "len": len,
+        "list": list,
+        "map": map,
+        "max": max,
+        "min": min,
+        "next": next,
+        "oct": oct,
+        "ord": ord,
+        "pow": pow,
+        "print": print,
+        "range": range,
+        "repr": repr,
+        "reversed": reversed,
+        "round": round,
+        "set": set,
+        "slice": slice,
+        "sorted": sorted,
+        "str": str,
+        "sum": sum,
+        "tuple": tuple,
+        "type": type,
+        "zip": zip,
+        "True": True,
+        "False": False,
+        "None": None,
         # Exception handling
-        'Exception': Exception, 'ValueError': ValueError, 'TypeError': TypeError,
-        'KeyError': KeyError, 'IndexError': IndexError, 'AttributeError': AttributeError,
-        'ZeroDivisionError': ZeroDivisionError, 'RuntimeError': RuntimeError,
-        'StopIteration': StopIteration, 'NotImplementedError': NotImplementedError,
+        "Exception": Exception,
+        "ValueError": ValueError,
+        "TypeError": TypeError,
+        "KeyError": KeyError,
+        "IndexError": IndexError,
+        "AttributeError": AttributeError,
+        "ZeroDivisionError": ZeroDivisionError,
+        "RuntimeError": RuntimeError,
+        "StopIteration": StopIteration,
+        "NotImplementedError": NotImplementedError,
         # getattr/setattr for OOP
-        'getattr': getattr, 'setattr': setattr, 'hasattr': hasattr, 'delattr': delattr,
-        'callable': callable, 'vars': vars,
+        "getattr": getattr,
+        "setattr": setattr,
+        "hasattr": hasattr,
+        "delattr": delattr,
+        "callable": callable,
+        "vars": vars,
     }
 
     return {
-        '__builtins__': safe_builtins,
-        '__name__': '__main__',
-        '__doc__': None,
+        "__builtins__": safe_builtins,
+        "__name__": "__main__",
+        "__doc__": None,
     }
 
 
@@ -197,7 +266,7 @@ def execute_restricted(code: str, config: SandboxConfig) -> ExecutionResult:
         def safe_import(name, globals=None, locals=None, fromlist=(), level=0):
             return _safe_import(name, config.allowed_imports)
 
-        restricted_globals['__builtins__']['__import__'] = safe_import
+        restricted_globals["__builtins__"]["__import__"] = safe_import
 
         # Pre-import allowed modules
         for mod_name in config.allowed_imports:
@@ -209,15 +278,15 @@ def execute_restricted(code: str, config: SandboxConfig) -> ExecutionResult:
         # Check for truly dangerous patterns (system access, code injection)
         # Note: We allow classes (__class__), eval in strings, and input for UI code
         dangerous_patterns = [
-            ('os.system', 'System command execution'),
-            ('subprocess.', 'Subprocess execution'),
-            ('Popen', 'Process spawning'),
-            ('__subclasses__', 'Class introspection attack'),
-            ('__globals__', 'Global namespace access'),
-            ('__code__', 'Code object manipulation'),
-            ('__reduce__', 'Pickle exploit'),
-            ('execfile', 'File execution'),
-            ('reload', 'Module reload'),
+            ("os.system", "System command execution"),
+            ("subprocess.", "Subprocess execution"),
+            ("Popen", "Process spawning"),
+            ("__subclasses__", "Class introspection attack"),
+            ("__globals__", "Global namespace access"),
+            ("__code__", "Code object manipulation"),
+            ("__reduce__", "Pickle exploit"),
+            ("execfile", "File execution"),
+            ("reload", "Module reload"),
         ]
 
         for pattern, reason in dangerous_patterns:
@@ -226,7 +295,7 @@ def execute_restricted(code: str, config: SandboxConfig) -> ExecutionResult:
                     success=False,
                     output="",
                     error=f"Security violation: {reason} ('{pattern}' is not allowed)",
-                    method_used="restricted"
+                    method_used="restricted",
                 )
 
         # Code containing GUI/input/eval can't run inside the restricted allowlist.
@@ -235,9 +304,7 @@ def execute_restricted(code: str, config: SandboxConfig) -> ExecutionResult:
         # deployments that serve untrusted input should set
         # MAP_FORBID_CRASH_ISOLATED=1 to disable this fallback — in that case
         # we report the code as unverifiable instead of running it.
-        needs_fallback = any(
-            p in code for p in ['input(', 'eval(', 'tkinter', 'tk.', 'mainloop']
-        )
+        needs_fallback = any(p in code for p in ["input(", "eval(", "tkinter", "tk.", "mainloop"])
         if needs_fallback:
             if crash_isolated_forbidden():
                 return ExecutionResult(
@@ -257,29 +324,27 @@ def execute_restricted(code: str, config: SandboxConfig) -> ExecutionResult:
             exec(code, restricted_globals)
 
         execution_time = time.time() - start_time
-        output = output_buffer.getvalue()[:config.max_output_size]
+        output = output_buffer.getvalue()[: config.max_output_size]
 
         return ExecutionResult(
-            success=True,
-            output=output,
-            execution_time=execution_time,
-            method_used="restricted"
+            success=True, output=output, execution_time=execution_time, method_used="restricted"
         )
 
     except Exception as e:
         execution_time = time.time() - start_time
         return ExecutionResult(
             success=False,
-            output=output_buffer.getvalue()[:config.max_output_size],
+            output=output_buffer.getvalue()[: config.max_output_size],
             error=f"{type(e).__name__}: {str(e)}",
             execution_time=execution_time,
-            method_used="restricted"
+            method_used="restricted",
         )
 
 
 # ============================================
 # Docker Execution (Most Secure)
 # ============================================
+
 
 def execute_docker(code: str, config: SandboxConfig) -> ExecutionResult:
     """
@@ -291,24 +356,19 @@ def execute_docker(code: str, config: SandboxConfig) -> ExecutionResult:
 
     # Check if Docker is available
     try:
-        subprocess.run(
-            ["docker", "info"],
-            capture_output=True,
-            timeout=5,
-            check=True
-        )
+        subprocess.run(["docker", "info"], capture_output=True, timeout=5, check=True)
     except (subprocess.SubprocessError, FileNotFoundError):
         return ExecutionResult(
             success=False,
             output="",
             error="Docker is not available. Install Docker or use 'restricted' method.",
-            method_used="docker"
+            method_used="docker",
         )
 
     start_time = time.time()
 
     # Create temporary file for the code
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
         f.write(code)
         temp_file = f.name
 
@@ -316,40 +376,45 @@ def execute_docker(code: str, config: SandboxConfig) -> ExecutionResult:
         # Run in Docker with strict limits
         result = subprocess.run(
             [
-                "docker", "run",
-                "--rm",                                    # Remove container after execution
-                "--network", "none",                       # No network access
-                "--memory", f"{config.max_memory_mb}m",   # Memory limit
-                "--cpus", "0.5",                          # CPU limit
-                "--pids-limit", "50",                     # Process limit
-                "--read-only",                            # Read-only filesystem
-                "--tmpfs", "/tmp:size=10m",               # Small writable tmp
-                "-v", f"{temp_file}:/code.py:ro",         # Mount code as read-only
+                "docker",
+                "run",
+                "--rm",  # Remove container after execution
+                "--network",
+                "none",  # No network access
+                "--memory",
+                f"{config.max_memory_mb}m",  # Memory limit
+                "--cpus",
+                "0.5",  # CPU limit
+                "--pids-limit",
+                "50",  # Process limit
+                "--read-only",  # Read-only filesystem
+                "--tmpfs",
+                "/tmp:size=10m",  # Small writable tmp
+                "-v",
+                f"{temp_file}:/code.py:ro",  # Mount code as read-only
                 config.docker_image,
-                "python", "/code.py"
+                "python",
+                "/code.py",
             ],
             capture_output=True,
             text=True,
-            timeout=config.timeout
+            timeout=config.timeout,
         )
 
         execution_time = time.time() - start_time
-        output = result.stdout[:config.max_output_size]
+        output = result.stdout[: config.max_output_size]
 
         if result.returncode == 0:
             return ExecutionResult(
-                success=True,
-                output=output,
-                execution_time=execution_time,
-                method_used="docker"
+                success=True, output=output, execution_time=execution_time, method_used="docker"
             )
         else:
             return ExecutionResult(
                 success=False,
                 output=output,
-                error=result.stderr[:config.max_output_size],
+                error=result.stderr[: config.max_output_size],
                 execution_time=execution_time,
-                method_used="docker"
+                method_used="docker",
             )
 
     except subprocess.TimeoutExpired:
@@ -357,7 +422,7 @@ def execute_docker(code: str, config: SandboxConfig) -> ExecutionResult:
             success=False,
             output="",
             error=f"Execution timed out after {config.timeout} seconds",
-            method_used="docker"
+            method_used="docker",
         )
     finally:
         # Clean up temp file
@@ -368,6 +433,7 @@ def execute_docker(code: str, config: SandboxConfig) -> ExecutionResult:
 # Subprocess Execution (Basic Isolation)
 # ============================================
 
+
 def execute_subprocess(code: str, config: SandboxConfig) -> ExecutionResult:
     """
     Execute code in a subprocess with basic isolation.
@@ -377,27 +443,27 @@ def execute_subprocess(code: str, config: SandboxConfig) -> ExecutionResult:
     import time
 
     # Check for interactive code that would hang waiting for input
-    if 'input(' in code:
+    if "input(" in code:
         return ExecutionResult(
             success=True,  # Syntax is valid, just can't test interactively
             output="Interactive code detected (input()) - skipping execution. Code syntax is valid.",
             execution_time=0,
-            method_used="subprocess_skip"
+            method_used="subprocess_skip",
         )
 
     # Check for GUI mainloop that would hang
-    if any(p in code for p in ['mainloop()', '.mainloop()']):
+    if any(p in code for p in ["mainloop()", ".mainloop()"]):
         return ExecutionResult(
             success=True,  # Syntax is valid, just can't test GUI
             output="GUI mainloop detected - skipping execution. Code syntax is valid.",
             execution_time=0,
-            method_used="subprocess_skip"
+            method_used="subprocess_skip",
         )
 
     start_time = time.time()
 
     # Create temporary file for the code
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
         f.write(code)
         temp_file = f.name
 
@@ -412,26 +478,23 @@ def execute_subprocess(code: str, config: SandboxConfig) -> ExecutionResult:
                 "PATH": os.environ.get("PATH", ""),
                 "PYTHONPATH": "",  # Don't inherit PYTHONPATH
                 "HOME": tempfile.gettempdir(),
-            }
+            },
         )
 
         execution_time = time.time() - start_time
-        output = result.stdout[:config.max_output_size]
+        output = result.stdout[: config.max_output_size]
 
         if result.returncode == 0:
             return ExecutionResult(
-                success=True,
-                output=output,
-                execution_time=execution_time,
-                method_used="subprocess"
+                success=True, output=output, execution_time=execution_time, method_used="subprocess"
             )
         else:
             return ExecutionResult(
                 success=False,
                 output=output,
-                error=result.stderr[:config.max_output_size],
+                error=result.stderr[: config.max_output_size],
                 execution_time=execution_time,
-                method_used="subprocess"
+                method_used="subprocess",
             )
 
     except subprocess.TimeoutExpired:
@@ -439,7 +502,7 @@ def execute_subprocess(code: str, config: SandboxConfig) -> ExecutionResult:
             success=False,
             output="",
             error=f"Execution timed out after {config.timeout} seconds",
-            method_used="subprocess"
+            method_used="subprocess",
         )
     finally:
         os.unlink(temp_file)
@@ -448,6 +511,7 @@ def execute_subprocess(code: str, config: SandboxConfig) -> ExecutionResult:
 # ============================================
 # Cloud Execution (E2B)
 # ============================================
+
 
 def execute_cloud(code: str, config: SandboxConfig) -> ExecutionResult:
     """Run code in a hosted E2B sandbox.
@@ -533,6 +597,7 @@ def execute_cloud(code: str, config: SandboxConfig) -> ExecutionResult:
 # ============================================
 # Main Entry Point
 # ============================================
+
 
 def execute_code_safely(
     code: str,

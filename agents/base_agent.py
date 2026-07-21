@@ -18,9 +18,7 @@ from core.task_schema import Task
 # Fences only count when they open a line — a ``` inside a string literal
 # or docstring must not trigger extraction/truncation.
 _FENCE_LINE_RE = re.compile(r"^```", re.MULTILINE)
-_FENCED_BLOCK_RE = re.compile(
-    r"^```[a-zA-Z0-9_+-]*[ \t]*\n(.*?)^```", re.DOTALL | re.MULTILINE
-)
+_FENCED_BLOCK_RE = re.compile(r"^```[a-zA-Z0-9_+-]*[ \t]*\n(.*?)^```", re.DOTALL | re.MULTILINE)
 _FENCE_OPEN_RE = re.compile(r"^```[a-zA-Z0-9_+-]*[ \t]*\n?", re.MULTILINE)
 
 
@@ -76,4 +74,6 @@ class BaseAgent:
         self.memory = Memory(memory_filepath)
 
     def run(self, task: Task) -> Any:
-        raise NotImplementedError("Each agent must implement its own 'run' method for processing a Task object.")
+        raise NotImplementedError(
+            "Each agent must implement its own 'run' method for processing a Task object."
+        )

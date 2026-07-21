@@ -36,8 +36,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from core.interaction_log import enable_logging, export_for_sia
 
 ALL_ROLES = [
-    "planner", "architect", "developer", "critic",
-    "qa", "integrator", "test_generator", "documenter", "researcher",
+    "planner",
+    "architect",
+    "developer",
+    "critic",
+    "qa",
+    "integrator",
+    "test_generator",
+    "documenter",
+    "researcher",
 ]
 
 
@@ -86,10 +93,7 @@ def main() -> int:
 
     if args.run == "none":
         print("Feed each file to self-improving-agent's training pipeline:")
-        print(
-            f"  python -m self_improving_agent.training.finetune "
-            f"--data {out_dir}/<role>.jsonl"
-        )
+        print(f"  python -m self_improving_agent.training.finetune --data {out_dir}/<role>.jsonl")
         return 0
 
     # --run validate or --run distill: needs the [sia] extra
@@ -113,6 +117,7 @@ def main() -> int:
 def _sia_available() -> bool:
     try:
         import self_improving_agent  # noqa: F401
+
         return True
     except ImportError:
         return False

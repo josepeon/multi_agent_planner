@@ -60,10 +60,12 @@ class TestBestOfNSelection:
 
         # Two candidates: a failing one with high score, a passing one with low.
         # Passing should win.
-        candidates_iter = iter([
-            ({"code": "FAIL"}, {"status": "failed"}, False),
-            ({"code": "PASS"}, {"status": "passed"}, True),
-        ])
+        candidates_iter = iter(
+            [
+                ({"code": "FAIL"}, {"status": "failed"}, False),
+                ({"code": "PASS"}, {"status": "passed"}, True),
+            ]
+        )
         monkeypatch.setattr(
             orchestrator,
             "_develop_one_candidate",
@@ -90,11 +92,13 @@ class TestBestOfNSelection:
         from core import orchestrator
         from core.task_schema import Task
 
-        candidates_iter = iter([
-            ({"code": "A"}, {"status": "passed"}, True),
-            ({"code": "B"}, {"status": "passed"}, True),
-            ({"code": "C"}, {"status": "passed"}, True),
-        ])
+        candidates_iter = iter(
+            [
+                ({"code": "A"}, {"status": "passed"}, True),
+                ({"code": "B"}, {"status": "passed"}, True),
+                ({"code": "C"}, {"status": "passed"}, True),
+            ]
+        )
         monkeypatch.setattr(
             orchestrator,
             "_develop_one_candidate",
@@ -117,10 +121,12 @@ class TestBestOfNSelection:
         from core import orchestrator
         from core.task_schema import Task
 
-        candidates_iter = iter([
-            ({"code": "X"}, {"status": "failed"}, False),
-            ({"code": "Y"}, {"status": "failed"}, False),
-        ])
+        candidates_iter = iter(
+            [
+                ({"code": "X"}, {"status": "failed"}, False),
+                ({"code": "Y"}, {"status": "failed"}, False),
+            ]
+        )
         monkeypatch.setattr(
             orchestrator,
             "_develop_one_candidate",

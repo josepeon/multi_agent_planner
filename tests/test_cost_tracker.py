@@ -32,6 +32,7 @@ def _reset_tracker():
 # Pricing
 # ===========================================
 
+
 class TestPricing:
     def test_model_price_math(self):
         p = ModelPrice(input_per_mtok=2.5, output_per_mtok=10.0)
@@ -63,6 +64,7 @@ class TestPricing:
 # ===========================================
 # Recording + attribution
 # ===========================================
+
 
 class TestRecording:
     def test_record_with_default_role(self):
@@ -119,6 +121,7 @@ class TestRecording:
 # Run boundary
 # ===========================================
 
+
 class TestRunBoundary:
     def test_begin_run_resets(self):
         record_usage("openai", "gpt-4o", 100, 100)
@@ -130,6 +133,7 @@ class TestRunBoundary:
 # ===========================================
 # Budget enforcement
 # ===========================================
+
 
 class TestBudget:
     def test_budget_not_exceeded(self):
@@ -148,6 +152,7 @@ class TestBudget:
 # ===========================================
 # Reporting
 # ===========================================
+
 
 class TestReporting:
     def test_summary_with_no_calls(self):
@@ -185,6 +190,7 @@ class TestReporting:
 # Thread safety
 # ===========================================
 
+
 class TestThreadSafety:
     def test_concurrent_records(self):
         def worker():
@@ -205,6 +211,7 @@ class TestThreadSafety:
 # ===========================================
 # Isolated tracker instance
 # ===========================================
+
 
 class TestIsolatedInstance:
     """A second CostTracker for tests that don't want to share global state."""

@@ -6,7 +6,6 @@ Generates pytest unit tests for generated code.
 Analyzes classes and functions to create comprehensive test coverage.
 """
 
-
 from core.languages import LanguageProfile, get_profile
 from core.llm_provider import BaseLLMClient, get_llm_client
 from core.shared_context import SharedContext, get_shared_context
@@ -94,7 +93,7 @@ Output ONLY the pytest code:"""
                 user_message=user_message,
                 system_message=system_message,
                 temperature=self.temperature,
-                max_tokens=2500
+                max_tokens=2500,
             )
 
             test_code = self._clean_code(response)
@@ -106,4 +105,5 @@ Output ONLY the pytest code:"""
     def _clean_code(self, code: str) -> str:
         """Clean up LLM response to extract pure Python code."""
         from agents.base_agent import strip_code_fences
+
         return strip_code_fences(code)

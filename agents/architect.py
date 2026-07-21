@@ -96,9 +96,7 @@ RULES:
                     "request:\n" + remembered + "\n"
                 )
 
-        research_block = (
-            f"\n\n{research_brief}\n" if research_brief else ""
-        )
+        research_block = f"\n\n{research_brief}\n" if research_brief else ""
 
         user_message = f"""Project: {user_prompt}
 
@@ -112,7 +110,7 @@ Design the architecture:"""
                 user_message=user_message,
                 system_message=system_message,
                 temperature=self.temperature,
-                max_tokens=1500
+                max_tokens=1500,
             )
 
             # Parse the JSON response
@@ -141,7 +139,7 @@ Design the architecture:"""
                 files=data.get("files", []),
                 classes=data.get("classes", {}),
                 interfaces=data.get("interfaces", {}),
-                dependencies=data.get("dependencies", {})
+                dependencies=data.get("dependencies", {}),
             )
         print("  Failed to parse architecture JSON")
         print(f"  Raw output: {output[:500]}...")

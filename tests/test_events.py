@@ -11,6 +11,7 @@ from core.events import EventBus, get_bus, new_job_id
 # Basics
 # ===========================================
 
+
 class TestEventBasics:
     def test_emit_assigns_sequence(self):
         bus = EventBus()
@@ -38,6 +39,7 @@ class TestEventBasics:
 # ===========================================
 # Replay
 # ===========================================
+
 
 class TestReplay:
     def test_subscriber_gets_history_then_live(self):
@@ -91,6 +93,7 @@ class TestReplay:
 # Multiple subscribers
 # ===========================================
 
+
 class TestFanout:
     def test_two_subscribers_each_get_all_events(self):
         bus = EventBus()
@@ -129,6 +132,7 @@ class TestFanout:
 # End of stream
 # ===========================================
 
+
 class TestEnd:
     def test_end_terminates_subscribers(self):
         bus = EventBus()
@@ -153,6 +157,7 @@ class TestEnd:
 # Singleton helpers
 # ===========================================
 
+
 class TestModuleSingleton:
     def test_get_bus_returns_consistent_instance(self):
         assert get_bus() is get_bus()
@@ -164,6 +169,7 @@ class TestModuleSingleton:
 # ===========================================
 # Ended-job semantics (SSE hang fixes)
 # ===========================================
+
 
 class TestEndedJobs:
     def test_subscribe_after_end_replays_and_returns(self):

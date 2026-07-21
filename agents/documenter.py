@@ -8,7 +8,6 @@ Generates comprehensive documentation for generated code:
 - Adds type hints where missing
 """
 
-
 from core.llm_provider import BaseLLMClient, get_llm_client
 
 
@@ -63,7 +62,7 @@ Generate the README.md:"""
                 user_message=user_message,
                 system_message=system_message,
                 temperature=self.temperature,
-                max_tokens=2000
+                max_tokens=2000,
             )
             return response.strip()
 
@@ -120,7 +119,7 @@ Return the documented code:"""
                 user_message=user_message,
                 system_message=system_message,
                 temperature=self.temperature,
-                max_tokens=3000
+                max_tokens=3000,
             )
             return self._clean_code(response)
 
@@ -130,4 +129,5 @@ Return the documented code:"""
     def _clean_code(self, code: str) -> str:
         """Clean up LLM response."""
         from agents.base_agent import strip_code_fences
+
         return strip_code_fences(code)

@@ -41,6 +41,7 @@ from typing import Any, Protocol
 # Backend protocol
 # ===========================================
 
+
 @dataclass
 class MemoryEntry:
     """One stored memory."""
@@ -122,9 +123,7 @@ class DefaultVectorBackend:
         self._entries[entry.id] = entry
         self._save()
 
-    def query(
-        self, text: str, k: int, kind: str | None = None
-    ) -> list[RecallResult]:
+    def query(self, text: str, k: int, kind: str | None = None) -> list[RecallResult]:
         if not self._entries:
             return []
         target = _term_freq(_tokenize(text))
@@ -175,6 +174,7 @@ class DefaultVectorBackend:
 # ===========================================
 # Optional ChromaDB backend (lazy import)
 # ===========================================
+
 
 class ChromaVectorBackend:
     """Optional backend — only imported if chromadb is installed.
@@ -229,14 +229,10 @@ class ChromaVectorBackend:
             ],
         )
 
-    def query(
-        self, text: str, k: int, kind: str | None = None
-    ) -> list[RecallResult]:
+    def query(self, text: str, k: int, kind: str | None = None) -> list[RecallResult]:
         self._ensure()
         where = {"kind": kind} if kind else None
-        result = self._collection.query(
-            query_texts=[text], n_results=k, where=where
-        )
+        result = self._collection.query(query_texts=[text], n_results=k, where=where)
         out: list[RecallResult] = []
         ids = result.get("ids", [[]])[0]
         docs = result.get("documents", [[]])[0]
@@ -309,6 +305,7 @@ def make_backend(
 # ===========================================
 # Memory facades
 # ===========================================
+
 
 def _make_id(text: str, kind: str) -> str:
     h = hashlib.sha1(f"{kind}::{text}".encode()).hexdigest()

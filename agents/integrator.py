@@ -48,11 +48,13 @@ class IntegratorAgent:
         for task_entry in session_log.get("tasks", []):
             code = task_entry.get("code", "")
             if code and isinstance(code, str) and code.strip():
-                code_blocks.append({
-                    "task": task_entry.get("task", "Unknown task"),
-                    "code": code,
-                    "status": task_entry.get("status", "unknown")
-                })
+                code_blocks.append(
+                    {
+                        "task": task_entry.get("task", "Unknown task"),
+                        "code": code,
+                        "status": task_entry.get("status", "unknown"),
+                    }
+                )
 
         if not code_blocks:
             return "# No code generated"
@@ -98,7 +100,7 @@ Create the final integrated Python program:"""
                 user_message=user_message,
                 system_message=system_message,
                 temperature=self.temperature,
-                max_tokens=3000
+                max_tokens=3000,
             )
 
             # Clean up the output
@@ -177,13 +179,17 @@ Create the final integrated Python program:"""
                         # Keep most complete version (by line count)
                         class_code = ast.get_source_segment(code, node)
                         if class_code:
-                            if node.name not in classes or len(class_code) > len(classes[node.name]):
+                            if node.name not in classes or len(class_code) > len(
+                                classes[node.name]
+                            ):
                                 classes[node.name] = class_code
 
                     elif isinstance(node, ast.FunctionDef):
                         func_code = ast.get_source_segment(code, node)
                         if func_code:
-                            if node.name not in functions or len(func_code) > len(functions[node.name]):
+                            if node.name not in functions or len(func_code) > len(
+                                functions[node.name]
+                            ):
                                 functions[node.name] = func_code
 
                     else:
@@ -217,7 +223,7 @@ Create the final integrated Python program:"""
 
         # Other code
         for code in other_code:
-            if code.strip() and 'if __name__' not in code:
+            if code.strip() and "if __name__" not in code:
                 parts.append(code)
 
         final_code = "\n\n".join(parts)
@@ -227,7 +233,10 @@ Create the final integrated Python program:"""
             final_code += '\n\nif __name__ == "__main__":\n    main()\n'
 
         return final_code
-    def integrate_multifile(self, session_log: dict, output_dir: str = "output/project") -> dict[str, str]:
+
+    def integrate_multifile(
+        self, session_log: dict, output_dir: str = "output/project"
+    ) -> dict[str, str]:
         """
         Integrate code into multiple files for better project structure.
 
@@ -244,11 +253,13 @@ Create the final integrated Python program:"""
         for task_entry in session_log.get("tasks", []):
             code = task_entry.get("code", "")
             if code and isinstance(code, str) and code.strip():
-                code_blocks.append({
-                    "task": task_entry.get("task", "Unknown task"),
-                    "code": code,
-                    "status": task_entry.get("status", "unknown")
-                })
+                code_blocks.append(
+                    {
+                        "task": task_entry.get("task", "Unknown task"),
+                        "code": code,
+                        "status": task_entry.get("status", "unknown"),
+                    }
+                )
 
         if not code_blocks:
             return {"main.py": "# No code generated"}
@@ -299,7 +310,7 @@ Create the multi-file project structure as JSON:"""
                 user_message=user_message,
                 system_message=system_message,
                 temperature=self.temperature,
-                max_tokens=4000
+                max_tokens=4000,
             )
 
             # Parse JSON output
@@ -362,10 +373,13 @@ Create the multi-file project structure as JSON:"""
             # Check what names are used but not defined locally
             try:
                 tree = ast.parse(content)
-                local_defs = definitions.get(filename, {"classes": set(), "functions": set(), "enums": set()})
+                local_defs = definitions.get(
+                    filename, {"classes": set(), "functions": set(), "enums": set()}
+                )
                 local_names = local_defs["classes"] | local_defs["functions"] | local_defs["enums"]
 
                 import builtins as _builtins
+
                 for node in ast.walk(tree):
                     if isinstance(node, ast.Name):
                         name = node.id
@@ -380,7 +394,11 @@ Create the multi-file project structure as JSON:"""
                         for other_file, other_defs in definitions.items():
                             if other_file == filename:
                                 continue
-                            all_defs = other_defs["classes"] | other_defs["functions"] | other_defs["enums"]
+                            all_defs = (
+                                other_defs["classes"]
+                                | other_defs["functions"]
+                                | other_defs["enums"]
+                            )
                             if name in all_defs:
                                 module = other_file.replace(".py", "")
                                 missing_imports.append((module, name))
@@ -445,7 +463,9 @@ Create the multi-file project structure as JSON:"""
                         validated_files[filename] = content
                     except SyntaxError as e:
                         print(f"  [WARN] Syntax error in {filename}: {e}")
-                        validated_files[filename] = f"# Syntax error in generated code\n# {e}\n\n{content}"
+                        validated_files[filename] = (
+                            f"# Syntax error in generated code\n# {e}\n\n{content}"
+                        )
                 else:
                     validated_files[filename] = content
 

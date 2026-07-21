@@ -15,6 +15,7 @@ from core.test_runner import (
 # Skip conditions
 # ===========================================
 
+
 class TestSkipConditions:
     def test_empty_test_code_does_not_run(self):
         result = run_generated_tests("def add(a, b): return a + b", "")
@@ -42,6 +43,7 @@ class TestSkipConditions:
 # Real execution paths
 # ===========================================
 
+
 class TestRealExecution:
     def test_passing_tests_report_success(self):
         program = "def add(a, b):\n    return a + b\n"
@@ -62,9 +64,7 @@ class TestRealExecution:
     def test_failing_test_is_reported(self):
         program = "def add(a, b):\n    return a + b\n"
         tests = (
-            "from final_program import add\n\n"
-            "def test_add_wrong():\n"
-            "    assert add(2, 3) == 99\n"
+            "from final_program import add\n\ndef test_add_wrong():\n    assert add(2, 3) == 99\n"
         )
         result = run_generated_tests(program, tests)
         assert result.ran is True
@@ -78,9 +78,7 @@ class TestRealExecution:
         smoke test."""
         program = "def add(a, b):\n    return a + b\n"
         tests = (
-            "from calculator import add\n\n"
-            "def test_add_positive():\n"
-            "    assert add(2, 3) == 5\n"
+            "from calculator import add\n\ndef test_add_positive():\n    assert add(2, 3) == 5\n"
         )
         result = run_generated_tests(program, tests)
         assert result.ran is True
@@ -130,6 +128,7 @@ class TestRealExecution:
 # Reporting helpers
 # ===========================================
 
+
 class TestReporting:
     def test_render_summary_for_skip(self):
         result = TestRunResult(ran=False, skip_reason="empty test code")
@@ -138,9 +137,7 @@ class TestReporting:
         assert "empty test code" in out
 
     def test_render_summary_for_pass(self):
-        result = TestRunResult(
-            ran=True, passed=3, total=3, duration_seconds=0.42
-        )
+        result = TestRunResult(ran=True, passed=3, total=3, duration_seconds=0.42)
         out = render_summary(result)
         assert "3/3" in out
 
@@ -177,24 +174,14 @@ class TestPlainImportAliasing:
         """`import calculator` (not just `from calculator import x`) must
         resolve to the generated program."""
         program = "def add(a, b):\n    return a + b\n"
-        tests = (
-            "import calculator\n"
-            "\n"
-            "def test_add():\n"
-            "    assert calculator.add(1, 2) == 3\n"
-        )
+        tests = "import calculator\n\ndef test_add():\n    assert calculator.add(1, 2) == 3\n"
         result = run_generated_tests(program, tests)
         assert result.ran
         assert result.all_passed, result.failure_summaries
 
     def test_import_as_alias_form(self):
         program = "def add(a, b):\n    return a + b\n"
-        tests = (
-            "import calculator as calc\n"
-            "\n"
-            "def test_add():\n"
-            "    assert calc.add(2, 2) == 4\n"
-        )
+        tests = "import calculator as calc\n\ndef test_add():\n    assert calc.add(2, 2) == 4\n"
         result = run_generated_tests(program, tests)
         assert result.ran
         assert result.all_passed, result.failure_summaries

@@ -205,10 +205,7 @@ class BoundedCache:
                     "max_size": self.max_size,
                     "ttl_seconds": self.ttl_seconds,
                 },
-                "entries": {
-                    key: {"ts": ts, "v": value}
-                    for key, (ts, value) in self._data.items()
-                },
+                "entries": {key: {"ts": ts, "v": value} for key, (ts, value) in self._data.items()},
             }
             # Write-then-rename so a crash mid-write can't corrupt the file.
             fd, tmp_path = tempfile.mkstemp(dir=dirname, suffix=".tmp")

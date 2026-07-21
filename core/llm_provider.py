@@ -80,6 +80,7 @@ def _log_interaction(
 @dataclass
 class LLMConfig:
     """Configuration for LLM providers"""
+
     provider: str = "groq"  # Default to free Groq
     model: str | None = None
     temperature: float = 0.3
@@ -87,13 +88,15 @@ class LLMConfig:
     max_retries: int = 3  # Retry configuration
 
     # Default models per provider
-    DEFAULT_MODELS: dict[str, str] = field(default_factory=lambda: {
-        "groq": "llama-3.3-70b-versatile",
-        "gemini": "gemini-2.0-flash-exp",
-        "ollama": "llama3.2",
-        "openai": "gpt-4o",
-        "openrouter": "meta-llama/llama-3.3-70b-instruct",
-    })
+    DEFAULT_MODELS: dict[str, str] = field(
+        default_factory=lambda: {
+            "groq": "llama-3.3-70b-versatile",
+            "gemini": "gemini-2.0-flash-exp",
+            "ollama": "llama3.2",
+            "openai": "gpt-4o",
+            "openrouter": "meta-llama/llama-3.3-70b-instruct",
+        }
+    )
 
     def __post_init__(self):
         if self.model is None:
@@ -148,6 +151,7 @@ class OpenAIClient(BaseLLMClient):
     def __init__(self, config: LLMConfig):
         super().__init__(config)
         from openai import OpenAI
+
         self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
     def chat(
@@ -182,8 +186,10 @@ class OpenAIClient(BaseLLMClient):
         ct = getattr(usage, "completion_tokens", 0) or 0 if usage else 0
         # Record even usage-less responses so the call count stays honest
         record_usage(
-            provider="openai", model=self.config.model,
-            prompt_tokens=pt, completion_tokens=ct,
+            provider="openai",
+            model=self.config.model,
+            prompt_tokens=pt,
+            completion_tokens=ct,
         )
         _log_interaction("openai", self.config.model, messages, content, pt, ct)
         return content
@@ -207,9 +213,9 @@ class GroqClient(BaseLLMClient):
 
     # Fallback order: if primary model hits rate limit, try these
     FALLBACK_MODELS = [
-        "llama-3.1-8b-instant",     # 500k TPD, very fast
-        "gemma2-9b-it",             # 500k TPD, good quality
-        "mixtral-8x7b-32768",       # 500k TPD, long context
+        "llama-3.1-8b-instant",  # 500k TPD, very fast
+        "gemma2-9b-it",  # 500k TPD, good quality
+        "mixtral-8x7b-32768",  # 500k TPD, long context
     ]
 
     # How long a rate-limited model stays benched before being retried.
@@ -224,17 +230,20 @@ class GroqClient(BaseLLMClient):
         self._rate_limited_until: dict[str, float] = {}  # model -> retry-after ts
         try:
             from groq import Groq
+
             self.client = Groq(api_key=os.getenv("GROQ_API_KEY"))
         except ImportError as e:
             raise ImportError("Please install groq: pip install groq") from e
 
     def _is_rate_limited(self, model: str) -> bool:
         import time
+
         until = self._rate_limited_until.get(model)
         return until is not None and time.time() < until
 
     def _mark_rate_limited(self, model: str) -> None:
         import time
+
         self._rate_limited_until[model] = time.time() + self.RATE_LIMIT_COOLDOWN_S
 
     def _get_available_model(self) -> str:
@@ -290,8 +299,10 @@ class GroqClient(BaseLLMClient):
                 ct = getattr(usage, "completion_tokens", 0) or 0 if usage else 0
                 # Record even usage-less responses so the call count stays honest
                 record_usage(
-                    provider="groq", model=self.current_model,
-                    prompt_tokens=pt, completion_tokens=ct,
+                    provider="groq",
+                    model=self.current_model,
+                    prompt_tokens=pt,
+                    completion_tokens=ct,
                 )
                 _log_interaction("groq", self.current_model, messages, content, pt, ct)
                 return content
@@ -331,10 +342,13 @@ class GeminiClient(BaseLLMClient):
         super().__init__(config)
         try:
             import google.generativeai as genai
+
             genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
             self.model = genai.GenerativeModel(self.config.model)
         except ImportError as e:
-            raise ImportError("Please install google-generativeai: pip install google-generativeai") from e
+            raise ImportError(
+                "Please install google-generativeai: pip install google-generativeai"
+            ) from e
 
     def chat(
         self,
@@ -359,8 +373,10 @@ class GeminiClient(BaseLLMClient):
         ct = getattr(usage, "candidates_token_count", 0) or 0 if usage else 0
         content = response.text.strip()
         record_usage(
-            provider="gemini", model=self.config.model,
-            prompt_tokens=pt, completion_tokens=ct,
+            provider="gemini",
+            model=self.config.model,
+            prompt_tokens=pt,
+            completion_tokens=ct,
         )
         messages = [{"role": "user", "content": prompt}]
         if system_message:
@@ -439,7 +455,7 @@ class OllamaClient(BaseLLMClient):
                 "options": {
                     "temperature": temperature,
                     "num_predict": max_tokens,
-                }
+                },
             },
             timeout=300,
         )
@@ -455,8 +471,12 @@ class OllamaClient(BaseLLMClient):
             completion_tokens=completion_tokens,
         )
         _log_interaction(
-            "ollama", self.config.model, messages, content,
-            prompt_tokens, completion_tokens,
+            "ollama",
+            self.config.model,
+            messages,
+            content,
+            prompt_tokens,
+            completion_tokens,
         )
         return content
 
@@ -473,9 +493,9 @@ class OpenRouterClient(BaseLLMClient):
     def __init__(self, config: LLMConfig):
         super().__init__(config)
         from openai import OpenAI
+
         self.client = OpenAI(
-            api_key=os.getenv("OPENROUTER_API_KEY"),
-            base_url="https://openrouter.ai/api/v1"
+            api_key=os.getenv("OPENROUTER_API_KEY"), base_url="https://openrouter.ai/api/v1"
         )
 
     def chat(
@@ -510,8 +530,10 @@ class OpenRouterClient(BaseLLMClient):
         ct = getattr(usage, "completion_tokens", 0) or 0 if usage else 0
         # Record even usage-less responses so the call count stays honest
         record_usage(
-            provider="openrouter", model=self.config.model,
-            prompt_tokens=pt, completion_tokens=ct,
+            provider="openrouter",
+            model=self.config.model,
+            prompt_tokens=pt,
+            completion_tokens=ct,
         )
         _log_interaction("openrouter", self.config.model, messages, content, pt, ct)
         return content

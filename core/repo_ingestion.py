@@ -33,17 +33,54 @@ from pathlib import Path
 
 # Files we never read in full (binaries, build artifacts, etc.)
 _BINARY_EXTS = {
-    ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico", ".webp",
-    ".pdf", ".zip", ".tar", ".gz", ".tgz", ".bz2", ".xz",
-    ".pyc", ".pyo", ".so", ".dylib", ".dll", ".exe",
-    ".woff", ".woff2", ".ttf", ".otf",
-    ".mp3", ".mp4", ".webm", ".mov", ".wav",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".bmp",
+    ".ico",
+    ".webp",
+    ".pdf",
+    ".zip",
+    ".tar",
+    ".gz",
+    ".tgz",
+    ".bz2",
+    ".xz",
+    ".pyc",
+    ".pyo",
+    ".so",
+    ".dylib",
+    ".dll",
+    ".exe",
+    ".woff",
+    ".woff2",
+    ".ttf",
+    ".otf",
+    ".mp3",
+    ".mp4",
+    ".webm",
+    ".mov",
+    ".wav",
 }
 
 _SKIP_DIRS = {
-    ".git", ".github", "__pycache__", ".pytest_cache", ".ruff_cache",
-    "node_modules", ".venv", "venv", "env", "dist", "build", ".next",
-    ".mypy_cache", "coverage", "htmlcov", ".cache",
+    ".git",
+    ".github",
+    "__pycache__",
+    ".pytest_cache",
+    ".ruff_cache",
+    "node_modules",
+    ".venv",
+    "venv",
+    "env",
+    "dist",
+    "build",
+    ".next",
+    ".mypy_cache",
+    "coverage",
+    "htmlcov",
+    ".cache",
 }
 
 
@@ -108,6 +145,7 @@ class RepoMap:
 # Ingestion
 # ===========================================
 
+
 def ingest(source: str) -> RepoMap:
     """Build a RepoMap from a local path or a git URL.
 
@@ -146,7 +184,9 @@ def cleanup_clone(repo_map: RepoMap) -> None:
 
 
 def _looks_like_git_url(source: str) -> bool:
-    return source.startswith(("git@", "https://github.com", "http://github.com")) or source.endswith(".git")
+    return source.startswith(
+        ("git@", "https://github.com", "http://github.com")
+    ) or source.endswith(".git")
 
 
 _ALLOWED_URL_PREFIXES = ("https://", "http://", "git@", "ssh://", "git://")
@@ -237,9 +277,7 @@ def _summarize_python(path: Path, summary: FileSummary) -> None:
     for node in ast.iter_child_nodes(tree):
         if isinstance(node, ast.ClassDef):
             methods = [
-                n.name
-                for n in node.body
-                if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+                n.name for n in node.body if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
             ]
             if methods:
                 summary.classes.append(f"{node.name}({', '.join(methods[:6])})")

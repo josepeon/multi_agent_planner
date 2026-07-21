@@ -79,6 +79,7 @@ def _apply_checkpoint(handler: CheckpointHandler, prompt: CheckpointPrompt):
         return decision.hint, "regenerate"
     return prompt.artifact, "approved"
 
+
 MAX_DEV_RETRIES: int = 3
 MULTI_FILE_OUTPUT: bool = True
 
@@ -99,9 +100,7 @@ def _develop_with_retry_node(
 
     for attempt in range(MAX_DEV_RETRIES):
         context_message = (
-            f"\n\n## Context from previous tasks:\n{context_summary}"
-            if context_summary
-            else ""
+            f"\n\n## Context from previous tasks:\n{context_summary}" if context_summary else ""
         )
         with attribute("developer"):
             if feedback:
@@ -137,9 +136,7 @@ def _develop_with_retry_node(
             # not the dict repr (which polluted both prompt and cache key).
             code_str = code.get("code", "") if isinstance(code, dict) else code
             with attribute("critic"):
-                critique = critic.review(
-                    task.description, code_str, qa_result.get("result")
-                )
+                critique = critic.review(task.description, code_str, qa_result.get("result"))
             feedback = (
                 f"Previous attempt failed. Critic feedback:\n{critique}\n\nPlease fix these issues."
             )
@@ -184,9 +181,7 @@ def build_pipeline_graph(
         hint = ""
         for regen in range(MAX_CHECKPOINT_REGEN_TRIES + 1):
             with attribute("planner"):
-                tasks = planner.plan(
-                    prompt + (f"\n\nUser hint: {hint}" if hint else "")
-                )
+                tasks = planner.plan(prompt + (f"\n\nUser hint: {hint}" if hint else ""))
             # Normalize to Task objects with stable ids
             out: list[Task] = []
             for i, t in enumerate(tasks):
@@ -221,9 +216,7 @@ def build_pipeline_graph(
     def architect_run(inputs: dict[str, Any]) -> dict[str, Any]:
         tasks: list[Task] = inputs["plan"]
         # Tolerate checkpoint-edited plans that replaced Tasks with strings
-        descriptions = [
-            t.description if isinstance(t, Task) else str(t) for t in tasks
-        ]
+        descriptions = [t.description if isinstance(t, Task) else str(t) for t in tasks]
 
         # Researcher stage — parity with the linear orchestrator. No-op
         # (empty brief) when no search backend is configured.
@@ -325,6 +318,7 @@ def build_pipeline_graph(
         )
 
         from core.pipeline_graph import Replan
+
         return Replan(new_nodes=new_nodes)
 
     g.add(
@@ -357,28 +351,32 @@ def _integrate(
     for task in tasks:
         dev = inputs.get(f"dev_{task.id}")
         if dev is SKIPPED or dev is None:
-            session_log["tasks"].append({
-                "task": task.description,
-                "code": "",
-                "result": "",
-                "status": "failed",
-                "qa_result": {},
-                "critique": "",
-                "attempts": 0,
-            })
+            session_log["tasks"].append(
+                {
+                    "task": task.description,
+                    "code": "",
+                    "result": "",
+                    "status": "failed",
+                    "qa_result": {},
+                    "critique": "",
+                    "attempts": 0,
+                }
+            )
             continue
         code = dev["code"]
         code_str = code.get("code") if isinstance(code, dict) else code
-        session_log["tasks"].append({
-            "task": task.description,
-            "code": code_str,
-            "result": code.get("result") if isinstance(code, dict) else "",
-            # "passed"/"failed" — same vocabulary as the linear orchestrator
-            "status": "passed" if dev["passed"] else "failed",
-            "qa_result": dev["qa_result"],
-            "critique": dev["critique"],
-            "attempts": dev["attempts"],
-        })
+        session_log["tasks"].append(
+            {
+                "task": task.description,
+                "code": code_str,
+                "result": code.get("result") if isinstance(code, dict) else "",
+                # "passed"/"failed" — same vocabulary as the linear orchestrator
+                "status": "passed" if dev["passed"] else "failed",
+                "qa_result": dev["qa_result"],
+                "critique": dev["critique"],
+                "attempts": dev["attempts"],
+            }
+        )
 
     with attribute("integrator"):
         if MULTI_FILE_OUTPUT:
@@ -403,9 +401,7 @@ def _generate_tests(inputs: dict[str, Any], test_generator: TestGeneratorAgent) 
     return test_code
 
 
-def _generate_docs(
-    inputs: dict[str, Any], documenter: DocumenterAgent, prompt: str
-) -> str:
+def _generate_docs(inputs: dict[str, Any], documenter: DocumenterAgent, prompt: str) -> str:
     integrate_out = inputs["integrate"]
     if integrate_out is SKIPPED:
         return "# Documentation skipped (integration failed)"
@@ -469,13 +465,17 @@ def run_pipeline_dag(
                 pass
 
     def _wrap_finish(result):
-        emit_event(jid, "node_finished", {
-            "id": result.node_id,
-            "status": result.status,
-            "duration_s": result.duration_seconds,
-            "layer": result.layer,
-            "error": result.error,
-        })
+        emit_event(
+            jid,
+            "node_finished",
+            {
+                "id": result.node_id,
+                "status": result.status,
+                "duration_s": result.duration_seconds,
+                "layer": result.layer,
+                "error": result.error,
+            },
+        )
         if on_node_finish:
             try:
                 on_node_finish(result)
@@ -580,10 +580,14 @@ def run_pipeline_dag(
 
     emit_event(jid, "test_run", test_run)
     emit_event(jid, "cost", cost_snapshot)
-    emit_event(jid, "run_finished", {
-        "duration_s": _time.time() - run_start_ts,
-        "ok": test_run.get("all_passed", False),
-    })
+    emit_event(
+        jid,
+        "run_finished",
+        {
+            "duration_s": _time.time() - run_start_ts,
+            "ok": test_run.get("all_passed", False),
+        },
+    )
     get_bus().end(jid)
 
     return {

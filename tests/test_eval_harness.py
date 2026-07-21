@@ -24,6 +24,7 @@ from core.eval_harness import (
 # Corpus loader
 # ===========================================
 
+
 class TestLoadCorpus:
     def test_loads_minimal_yaml(self, tmp_path):
         path = tmp_path / "corpus.yml"
@@ -45,6 +46,7 @@ class TestLoadCorpus:
 # ===========================================
 # Individual rubrics
 # ===========================================
+
 
 def _ctx(**kwargs):
     case = EvalCase(id="t", prompt="p", rubrics=[])
@@ -78,9 +80,7 @@ class TestRubricCompiles:
 
 class TestRubricTestsPresent:
     def test_passes_with_test_fn(self):
-        result = rubric_tests_present(
-            _ctx(test_code="def test_foo():\n    assert 1\n")
-        )
+        result = rubric_tests_present(_ctx(test_code="def test_foo():\n    assert 1\n"))
         assert result.passed
 
     def test_passes_with_test_class(self):
@@ -108,9 +108,7 @@ class TestRubricTestsPass:
         assert result.score == 0.4
 
     def test_fails_when_not_run(self):
-        result = rubric_tests_pass(
-            _ctx(test_run={"ran": False, "skip_reason": "no test file"})
-        )
+        result = rubric_tests_pass(_ctx(test_run={"ran": False, "skip_reason": "no test file"}))
         assert not result.passed
         assert "skip_reason" not in result.detail  # the rendered detail uses our key
         assert "no test file" in result.detail
@@ -158,6 +156,7 @@ class TestRegisterRubric:
 # Full evaluation
 # ===========================================
 
+
 class TestEvaluateArtifacts:
     def test_unknown_rubric_records_failure(self, tmp_path):
         case = EvalCase(id="x", prompt="p", rubrics=["doesnotexist"])
@@ -174,7 +173,8 @@ class TestEvaluateArtifacts:
         )
 
         case = EvalCase(
-            id="x", prompt="p",
+            id="x",
+            prompt="p",
             rubrics=["compiles", "tests_present", "tests_pass", "readme_nonempty"],
         )
         result = evaluate_artifacts(case, tmp_path)
@@ -186,31 +186,36 @@ class TestEvaluateArtifacts:
 # Report aggregation
 # ===========================================
 
+
 class TestReport:
     def test_pass_rate_and_mean(self):
-        report = EvalReport(cases=[
-            CaseResult(
-                case_id="a",
-                rubrics=[RubricResult(name="r", passed=True, score=1.0)],
-                aggregate_score=1.0,
-            ),
-            CaseResult(
-                case_id="b",
-                rubrics=[RubricResult(name="r", passed=False, score=0.5)],
-                aggregate_score=0.5,
-            ),
-        ])
+        report = EvalReport(
+            cases=[
+                CaseResult(
+                    case_id="a",
+                    rubrics=[RubricResult(name="r", passed=True, score=1.0)],
+                    aggregate_score=1.0,
+                ),
+                CaseResult(
+                    case_id="b",
+                    rubrics=[RubricResult(name="r", passed=False, score=0.5)],
+                    aggregate_score=0.5,
+                ),
+            ]
+        )
         assert report.pass_rate() == 0.5
         assert report.mean_score() == 0.75
 
     def test_render_lists_each_case(self):
-        report = EvalReport(cases=[
-            CaseResult(
-                case_id="a",
-                rubrics=[RubricResult(name="r", passed=True, score=1.0)],
-                aggregate_score=1.0,
-            ),
-        ])
+        report = EvalReport(
+            cases=[
+                CaseResult(
+                    case_id="a",
+                    rubrics=[RubricResult(name="r", passed=True, score=1.0)],
+                    aggregate_score=1.0,
+                ),
+            ]
+        )
         out = report.render()
         assert "a" in out
         assert "1.00" in out

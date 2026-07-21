@@ -18,6 +18,7 @@ from core.pipeline_graph import (
 # Static validation
 # ===========================================
 
+
 class TestValidation:
     def test_unknown_dependency_rejected(self):
         g = PipelineGraph()
@@ -42,6 +43,7 @@ class TestValidation:
 # ===========================================
 # Linear execution
 # ===========================================
+
 
 class TestLinearExecution:
     def test_simple_chain(self):
@@ -73,6 +75,7 @@ class TestLinearExecution:
 # ===========================================
 # Parallel layers
 # ===========================================
+
 
 class TestParallelLayers:
     def test_parallel_runs_concurrently(self):
@@ -112,6 +115,7 @@ class TestParallelLayers:
 # ===========================================
 # Predicates
 # ===========================================
+
 
 class TestPredicates:
     def test_predicate_false_skips(self):
@@ -160,20 +164,23 @@ class TestPredicates:
 # Replan
 # ===========================================
 
+
 class TestReplan:
     def test_node_can_inject_followups(self):
         g = PipelineGraph()
 
         def planner(_i):
-            return Replan(new_nodes=[
-                PipelineNode(id="d1", run=lambda i: "one"),
-                PipelineNode(id="d2", run=lambda i: "two"),
-                PipelineNode(
-                    id="join",
-                    run=lambda i: f"{i['d1']}+{i['d2']}",
-                    depends_on=["d1", "d2"],
-                ),
-            ])
+            return Replan(
+                new_nodes=[
+                    PipelineNode(id="d1", run=lambda i: "one"),
+                    PipelineNode(id="d2", run=lambda i: "two"),
+                    PipelineNode(
+                        id="join",
+                        run=lambda i: f"{i['d1']}+{i['d2']}",
+                        depends_on=["d1", "d2"],
+                    ),
+                ]
+            )
 
         g.add(PipelineNode(id="planner", run=planner))
 
@@ -192,12 +199,14 @@ class TestReplan:
 
         def spawner(inputs):
             base = inputs["root"]
-            return Replan(new_nodes=[
-                PipelineNode(
-                    id="follower",
-                    run=lambda i, b=base: b * 2,
-                ),
-            ])
+            return Replan(
+                new_nodes=[
+                    PipelineNode(
+                        id="follower",
+                        run=lambda i, b=base: b * 2,
+                    ),
+                ]
+            )
 
         g.add(PipelineNode(id="root", run=root))
         g.add(PipelineNode(id="spawner", run=spawner, depends_on=["root"]))
@@ -209,6 +218,7 @@ class TestReplan:
 # ===========================================
 # Callbacks
 # ===========================================
+
 
 class TestCallbacks:
     def test_on_node_callbacks_fire(self):
@@ -232,6 +242,7 @@ class TestCallbacks:
 # ===========================================
 # GraphResult helpers
 # ===========================================
+
 
 class TestGraphResult:
     def test_succeeded_helper(self):
@@ -258,11 +269,15 @@ class TestReplanValidation:
         from core.pipeline_graph import PipelineGraph, PipelineNode, Replan
 
         g = PipelineGraph()
-        g.add(PipelineNode(
-            id="root",
-            run=lambda _inputs: Replan(new_nodes=[
-                PipelineNode(id="child", run=lambda i: 1, depends_on=["ghost"]),
-            ]),
-        ))
+        g.add(
+            PipelineNode(
+                id="root",
+                run=lambda _inputs: Replan(
+                    new_nodes=[
+                        PipelineNode(id="child", run=lambda i: 1, depends_on=["ghost"]),
+                    ]
+                ),
+            )
+        )
         with pytest.raises(ValueError, match="unknown node"):
             g.execute()

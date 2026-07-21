@@ -54,12 +54,7 @@ class TestSharedContextTopLevelOnly:
 
         ctx = SharedContext(filepath=str(tmp_path / "ctx.json"))
         code = (
-            "class TaskManager:\n"
-            "    def add_task(self):\n"
-            "        pass\n"
-            "\n"
-            "def helper():\n"
-            "    pass\n"
+            "class TaskManager:\n    def add_task(self):\n        pass\n\ndef helper():\n    pass\n"
         )
         ctx.add_generated_code(1, "mod", code, "passed")
         assert ctx.get_defined_classes() == ["TaskManager"]

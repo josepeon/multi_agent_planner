@@ -89,6 +89,7 @@ class CheckpointHandler(Protocol):
 # Built-in handlers
 # ===========================================
 
+
 class AutoApproveHandler:
     """Default. Approves every checkpoint without prompting.
 
@@ -128,9 +129,7 @@ class CLIHandler:
         self._printer(f"CHECKPOINT: {prompt.stage}")
         self._printer(f"{'=' * 60}")
         self._printer(prompt.rendered)
-        self._printer(
-            "\n[a]pprove  [e]dit  [r]egenerate [hint]  (default: approve)"
-        )
+        self._printer("\n[a]pprove  [e]dit  [r]egenerate [hint]  (default: approve)")
         raw = self._input_fn("> ").strip()
 
         if not raw or raw[0].lower() == "a":
@@ -174,6 +173,7 @@ class ScriptedHandler:
 # ===========================================
 # Stage renderers
 # ===========================================
+
 
 def render_plan(tasks: list) -> str:
     """Render a planner output (list of Task or str) for human review."""
@@ -234,6 +234,7 @@ class _EditedArchitecture:
 # Factory
 # ===========================================
 
+
 def get_handler_from_env() -> CheckpointHandler:
     """Pick a default handler based on env vars.
 
@@ -252,9 +253,7 @@ def _edit_in_editor(initial: str) -> str:
     import tempfile
 
     editor = os.environ.get("EDITOR", "vi")
-    with tempfile.NamedTemporaryFile(
-        mode="w+", suffix=".txt", delete=False
-    ) as f:
+    with tempfile.NamedTemporaryFile(mode="w+", suffix=".txt", delete=False) as f:
         f.write(initial)
         path = f.name
     try:

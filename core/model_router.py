@@ -41,15 +41,15 @@ class ModelChoice:
 
 # Hardcoded defaults. None for provider means "use LLM_PROVIDER env".
 _BUILTIN_DEFAULTS: dict[str, ModelChoice] = {
-    "planner":      ModelChoice(provider=None, model="llama-3.3-70b-versatile"),
-    "architect":    ModelChoice(provider=None, model="llama-3.3-70b-versatile"),
-    "developer":    ModelChoice(provider=None, model="llama-3.3-70b-versatile"),
-    "critic":       ModelChoice(provider=None, model="llama-3.1-8b-instant"),
-    "qa":           ModelChoice(provider=None, model="llama-3.1-8b-instant"),
-    "integrator":   ModelChoice(provider=None, model="llama-3.3-70b-versatile"),
+    "planner": ModelChoice(provider=None, model="llama-3.3-70b-versatile"),
+    "architect": ModelChoice(provider=None, model="llama-3.3-70b-versatile"),
+    "developer": ModelChoice(provider=None, model="llama-3.3-70b-versatile"),
+    "critic": ModelChoice(provider=None, model="llama-3.1-8b-instant"),
+    "qa": ModelChoice(provider=None, model="llama-3.1-8b-instant"),
+    "integrator": ModelChoice(provider=None, model="llama-3.3-70b-versatile"),
     "test_generator": ModelChoice(provider=None, model="llama-3.3-70b-versatile"),
-    "documenter":   ModelChoice(provider=None, model="llama-3.1-8b-instant"),
-    "researcher":   ModelChoice(provider=None, model="llama-3.1-8b-instant"),
+    "documenter": ModelChoice(provider=None, model="llama-3.1-8b-instant"),
+    "researcher": ModelChoice(provider=None, model="llama-3.1-8b-instant"),
 }
 
 

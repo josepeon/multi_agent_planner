@@ -17,6 +17,7 @@ from core.repo_ingestion import RepoMap, ingest
 # Ingestion
 # ===========================================
 
+
 class TestIngest:
     def test_local_dir(self, tmp_path):
         (tmp_path / "main.py").write_text(
@@ -50,9 +51,7 @@ class TestIngest:
         assert not any(p.startswith("__pycache__") for p in paths)
 
     def test_render_brief_shape(self, tmp_path):
-        (tmp_path / "main.py").write_text(
-            "class A:\n    def m(self): pass\n\ndef f(): pass\n"
-        )
+        (tmp_path / "main.py").write_text("class A:\n    def m(self): pass\n\ndef f(): pass\n")
         (tmp_path / "README.md").write_text("# Project\n\nDesc.\n")
         brief = ingest(str(tmp_path)).render_brief()
         assert "1 file(s)" in brief or "2 file(s)" in brief or "3 file(s)" in brief
@@ -74,15 +73,13 @@ class TestIngest:
 # Parsing change blocks
 # ===========================================
 
+
 class TestParseChanges:
     def _empty_repo(self, tmp_path) -> RepoMap:
         return RepoMap(root=Path(tmp_path))
 
     def test_parses_single_create(self, tmp_path):
-        raw = (
-            "--- FILE: new.py OP: create ---\n"
-            "print('hi')\n"
-        )
+        raw = "--- FILE: new.py OP: create ---\nprint('hi')\n"
         changes = _parse_changes(self._empty_repo(tmp_path), raw)
         assert len(changes) == 1
         assert changes[0].operation == "create"
@@ -90,22 +87,14 @@ class TestParseChanges:
         assert "print" in changes[0].new_content
 
     def test_parses_multiple_files(self, tmp_path):
-        raw = (
-            "--- FILE: a.py OP: create ---\n"
-            "a = 1\n"
-            "\n"
-            "--- FILE: b.py OP: modify ---\n"
-            "b = 2\n"
-        )
+        raw = "--- FILE: a.py OP: create ---\na = 1\n\n--- FILE: b.py OP: modify ---\nb = 2\n"
         changes = _parse_changes(self._empty_repo(tmp_path), raw)
         assert len(changes) == 2
         assert changes[0].path == "a.py" and changes[0].operation == "create"
         assert changes[1].path == "b.py" and changes[1].operation == "modify"
 
     def test_delete_has_no_content(self, tmp_path):
-        raw = (
-            "--- FILE: stale.py OP: delete ---\n"
-        )
+        raw = "--- FILE: stale.py OP: delete ---\n"
         changes = _parse_changes(self._empty_repo(tmp_path), raw)
         assert len(changes) == 1
         assert changes[0].operation == "delete"
@@ -125,6 +114,7 @@ class TestParseChanges:
 # ===========================================
 # Apply
 # ===========================================
+
 
 class TestApply:
     def test_apply_dry_run_does_not_write(self, tmp_path):
@@ -178,12 +168,14 @@ class TestApply:
 # Ingestion hardening
 # ===========================================
 
+
 class TestIngestionHardening:
     def test_ext_transport_rejected(self):
         """ext:: is a git transport that executes the embedded command."""
         import pytest
 
         from core.repo_ingestion import ingest
+
         with pytest.raises(ValueError, match="unsupported transport"):
             ingest("ext::sh -c 'touch /tmp/pwned' .git")
 
@@ -191,16 +183,19 @@ class TestIngestionHardening:
         import pytest
 
         from core.repo_ingestion import ingest
+
         with pytest.raises(ValueError, match="option"):
             ingest("--upload-pack=touch /tmp/pwned .git")
 
     def test_https_url_passes_validation(self):
         from core.repo_ingestion import _validate_git_url
+
         _validate_git_url("https://github.com/user/repo.git")  # no raise
         _validate_git_url("git@github.com:user/repo.git")  # no raise
 
     def test_symlinked_file_not_read(self, tmp_path):
         from core.repo_ingestion import ingest
+
         secret = tmp_path / "secret.txt"
         secret.write_text("HOST SECRET")
         repo = tmp_path / "repo"

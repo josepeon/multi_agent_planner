@@ -142,3 +142,39 @@ All Round 3 production hardening improvements are complete!
 ### Round 3 Started: 2025-12-28
 
 (Updates will be added here as each improvement is completed)
+
+### Round 4 — Hardening & correctness audit (2026-07-20)
+
+Full-codebase audit (4 parallel reviewers over orchestrators, provider
+layer, agents, and web/sandbox/memory) followed by targeted fixes. Tests
+315 → 349; ruff lint + format now clean and blocking in CI. Version 2.0.0.
+
+**Security**
+- Web app enables the sandbox gate (`MAP_FORBID_CRASH_ISOLATED=1`) by
+  default — previously LLM-generated code containing eval/tkinter fell
+  through to an unsandboxed subprocess on any network request.
+- Loopback bind by default; FLASK_DEBUG refused off-box; rate limiter no
+  longer trusts spoofable X-Forwarded-For; repo ingestion blocks the git
+  `ext::` RCE transport, option injection, and symlink file leaks.
+
+**Correctness**
+- BoundedCache (shared across worker threads) is now lock-guarded with
+  atomic saves — concurrent runs could corrupt the cache file.
+- EventBus: late SSE subscribers to finished jobs no longer hang forever;
+  crashed pipelines can't strand subscribers (@ends_bus); history bounded.
+- Critic was reviewing the developer's result-dict repr instead of code;
+  SharedContext advertised methods as top-level functions; Architect JSON
+  with trailing prose collapsed the design; Integrator's builtins check
+  never matched; test runner now aliases `import X` too.
+- DAG orchestrator parity: researcher stage wired in, architecture in
+  session_log, unified passed/failed vocabulary, replans re-validated.
+- Provider layer: temperature=0 respected, Groq rate-limit cooldown
+  (was benched-forever), groq default everywhere, Gemini/Ollama calls now
+  cost-tracked and interaction-logged, import-safe logger.
+
+**Infra**
+- `python -m evals.run` exists (full + --offline modes) — the corpus
+  previously referenced a runner that didn't exist.
+- Packaging: wheel now ships main.py (console script crashed before);
+  MIT LICENSE file added; Docker healthcheck fixed (curl isn't in the
+  image); requirements.txt gained the missing `requests`.

@@ -275,10 +275,15 @@ class PipelineGraph:
                 on_node_finish,
             )
 
-            # Apply any replans before the next layer
-            for replan in replans:
-                for new_node in replan.new_nodes:
-                    self.add(new_node)
+            # Apply any replans before the next layer, then re-validate so a
+            # replan that introduces a cycle or an unknown dependency raises
+            # a clear ValueError instead of silently failing its nodes with
+            # "dependencies could not be satisfied".
+            if replans:
+                for replan in replans:
+                    for new_node in replan.new_nodes:
+                        self.add(new_node)
+                self._validate()
 
             if to_run or to_skip:
                 layer += 1

@@ -118,9 +118,9 @@ class TestRealExecution:
 
     def test_collection_error_surfaces_as_error(self):
         program = "def add(a, b):\n    return a + b\n"
-        # Import that doesn't exist AND isn't matched by aliasing
-        # (aliasing only fires for ``from X import ...``, not ``import X``)
-        tests = "import no_such_module\n\ndef test_x():\n    assert True\n"
+        # 'os' is a reserved module name (never aliased to the program), so a
+        # bogus from-import on it produces a genuine collection error.
+        tests = "from os import no_such_name\n\ndef test_x():\n    assert True\n"
         result = run_generated_tests(program, tests)
         assert result.ran is True
         assert result.all_passed is False
@@ -170,3 +170,31 @@ class TestReporting:
         d = result.as_dict()
         for key in ("ran", "all_passed", "passed", "failed", "errors", "skipped", "total"):
             assert key in d
+
+
+class TestPlainImportAliasing:
+    def test_plain_import_gets_aliased(self):
+        """`import calculator` (not just `from calculator import x`) must
+        resolve to the generated program."""
+        program = "def add(a, b):\n    return a + b\n"
+        tests = (
+            "import calculator\n"
+            "\n"
+            "def test_add():\n"
+            "    assert calculator.add(1, 2) == 3\n"
+        )
+        result = run_generated_tests(program, tests)
+        assert result.ran
+        assert result.all_passed, result.failure_summaries
+
+    def test_import_as_alias_form(self):
+        program = "def add(a, b):\n    return a + b\n"
+        tests = (
+            "import calculator as calc\n"
+            "\n"
+            "def test_add():\n"
+            "    assert calc.add(2, 2) == 4\n"
+        )
+        result = run_generated_tests(program, tests)
+        assert result.ran
+        assert result.all_passed, result.failure_summaries

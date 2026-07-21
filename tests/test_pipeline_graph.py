@@ -247,3 +247,22 @@ class TestGraphResult:
         assert result.succeeded("ok")
         assert not result.succeeded("bad")
         assert not result.all_succeeded()
+
+
+class TestReplanValidation:
+    def test_replan_with_unknown_dep_raises(self):
+        """A replan that references a nonexistent node must raise a clear
+        error, not silently mark nodes failed."""
+        import pytest
+
+        from core.pipeline_graph import PipelineGraph, PipelineNode, Replan
+
+        g = PipelineGraph()
+        g.add(PipelineNode(
+            id="root",
+            run=lambda _inputs: Replan(new_nodes=[
+                PipelineNode(id="child", run=lambda i: 1, depends_on=["ghost"]),
+            ]),
+        ))
+        with pytest.raises(ValueError, match="unknown node"):
+            g.execute()

@@ -102,17 +102,23 @@ def _looks_runnable(test_code: str) -> tuple[bool, str | None]:
 _FROM_IMPORT_RE = re.compile(
     r"^from\s+([a-zA-Z_][\w]*)\s+import\b", re.MULTILINE
 )
+# 'import calculator' / 'import calculator as calc' — same aliasing need
+_PLAIN_IMPORT_RE = re.compile(
+    r"^import\s+([a-zA-Z_][\w]*)(?:\s+as\s+\w+)?\s*$", re.MULTILINE
+)
 
 
 def _extract_imported_module_names(test_code: str) -> set[str]:
-    """Pull module names out of ``from X import ...`` lines.
+    """Pull module names out of ``from X import ...`` and ``import X`` lines.
 
     These are the names the test code expects to find on disk. The test
     generator sometimes picks a project-specific name like ``calculator``
     rather than ``final_program``; the runner needs to expose the program
     under all of them.
     """
-    return {match.group(1) for match in _FROM_IMPORT_RE.finditer(test_code)}
+    names = {match.group(1) for match in _FROM_IMPORT_RE.finditer(test_code)}
+    names |= {match.group(1) for match in _PLAIN_IMPORT_RE.finditer(test_code)}
+    return names
 
 
 # Names we never alias the program under (would shadow real packages

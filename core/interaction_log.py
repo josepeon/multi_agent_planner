@@ -96,9 +96,11 @@ class InteractionLog:
                     continue
                 try:
                     data = json.loads(line)
-                except json.JSONDecodeError:
+                    out.append(Interaction(**data))
+                except (json.JSONDecodeError, TypeError):
+                    # The log is append-only across versions; one old-schema
+                    # row must not abort the whole read (and every export).
                     continue
-                out.append(Interaction(**data))
         return out
 
 

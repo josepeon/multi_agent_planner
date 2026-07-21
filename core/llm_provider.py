@@ -106,6 +106,20 @@ class BaseLLMClient(ABC):
     def __init__(self, config: LLMConfig):
         self.config = config
 
+    def _resolve_params(
+        self, temperature: float | None, max_tokens: int | None
+    ) -> tuple[float, int]:
+        """Resolve per-call overrides against config defaults.
+
+        Explicit ``is not None`` checks: ``temperature=0.0`` is a legitimate
+        request for deterministic output and must not be swallowed by
+        ``temperature or default``.
+        """
+        return (
+            temperature if temperature is not None else self.config.temperature,
+            max_tokens if max_tokens is not None else self.config.max_tokens,
+        )
+
     @abstractmethod
     def chat(
         self,
@@ -155,21 +169,22 @@ class OpenAIClient(BaseLLMClient):
         temperature: float | None = None,
         max_tokens: int | None = None,
     ) -> str:
+        temperature, max_tokens = self._resolve_params(temperature, max_tokens)
         response = self.client.chat.completions.create(
             model=self.config.model,
             messages=messages,
-            temperature=temperature or self.config.temperature,
-            max_tokens=max_tokens or self.config.max_tokens,
+            temperature=temperature,
+            max_tokens=max_tokens,
         )
         usage = getattr(response, "usage", None)
         content = response.choices[0].message.content.strip()
         pt = getattr(usage, "prompt_tokens", 0) or 0 if usage else 0
         ct = getattr(usage, "completion_tokens", 0) or 0 if usage else 0
-        if usage is not None:
-            record_usage(
-                provider="openai", model=self.config.model,
-                prompt_tokens=pt, completion_tokens=ct,
-            )
+        # Record even usage-less responses so the call count stays honest
+        record_usage(
+            provider="openai", model=self.config.model,
+            prompt_tokens=pt, completion_tokens=ct,
+        )
         _log_interaction("openai", self.config.model, messages, content, pt, ct)
         return content
 
@@ -197,24 +212,38 @@ class GroqClient(BaseLLMClient):
         "mixtral-8x7b-32768",       # 500k TPD, long context
     ]
 
+    # How long a rate-limited model stays benched before being retried.
+    # Without this, a single transient 429 excluded the model for the entire
+    # client lifetime (typically the whole session).
+    RATE_LIMIT_COOLDOWN_S = 120.0
+
     def __init__(self, config: LLMConfig):
         super().__init__(config)
         self.primary_model = config.model
         self.current_model = config.model
-        self._rate_limited_models = set()  # Track which models are rate limited
+        self._rate_limited_until: dict[str, float] = {}  # model -> retry-after ts
         try:
             from groq import Groq
             self.client = Groq(api_key=os.getenv("GROQ_API_KEY"))
         except ImportError as e:
             raise ImportError("Please install groq: pip install groq") from e
 
+    def _is_rate_limited(self, model: str) -> bool:
+        import time
+        until = self._rate_limited_until.get(model)
+        return until is not None and time.time() < until
+
+    def _mark_rate_limited(self, model: str) -> None:
+        import time
+        self._rate_limited_until[model] = time.time() + self.RATE_LIMIT_COOLDOWN_S
+
     def _get_available_model(self) -> str:
         """Get an available model, falling back if primary is rate limited."""
-        if self.primary_model not in self._rate_limited_models:
+        if not self._is_rate_limited(self.primary_model):
             return self.primary_model
 
         for fallback in self.FALLBACK_MODELS:
-            if fallback not in self._rate_limited_models:
+            if not self._is_rate_limited(fallback):
                 if self.current_model != fallback:
                     print(f"  [WARN] Falling back to model: {fallback}")
                 return fallback
@@ -242,6 +271,7 @@ class GroqClient(BaseLLMClient):
         max_tokens: int | None = None,
     ) -> str:
         last_error = None
+        temperature, max_tokens = self._resolve_params(temperature, max_tokens)
 
         # Try available models
         for _attempt in range(len(self.FALLBACK_MODELS) + 2):
@@ -251,18 +281,18 @@ class GroqClient(BaseLLMClient):
                 response = self.client.chat.completions.create(
                     model=self.current_model,
                     messages=messages,
-                    temperature=temperature or self.config.temperature,
-                    max_tokens=max_tokens or self.config.max_tokens,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
                 )
                 usage = getattr(response, "usage", None)
                 content = response.choices[0].message.content.strip()
                 pt = getattr(usage, "prompt_tokens", 0) or 0 if usage else 0
                 ct = getattr(usage, "completion_tokens", 0) or 0 if usage else 0
-                if usage is not None:
-                    record_usage(
-                        provider="groq", model=self.current_model,
-                        prompt_tokens=pt, completion_tokens=ct,
-                    )
+                # Record even usage-less responses so the call count stays honest
+                record_usage(
+                    provider="groq", model=self.current_model,
+                    prompt_tokens=pt, completion_tokens=ct,
+                )
                 _log_interaction("groq", self.current_model, messages, content, pt, ct)
                 return content
 
@@ -272,7 +302,7 @@ class GroqClient(BaseLLMClient):
 
                 # Check if it's a rate limit error
                 if "rate_limit" in error_str.lower() or "429" in error_str:
-                    self._rate_limited_models.add(self.current_model)
+                    self._mark_rate_limited(self.current_model)
                     print(f"  [WARN] Rate limited on {self.current_model}, trying fallback...")
                     continue
                 else:
@@ -317,21 +347,26 @@ class GeminiClient(BaseLLMClient):
         if system_message:
             prompt = f"{system_message}\n\n{user_message}"
 
+        temperature, max_tokens = self._resolve_params(temperature, max_tokens)
         generation_config = {
-            "temperature": temperature or self.config.temperature,
-            "max_output_tokens": max_tokens or self.config.max_tokens,
+            "temperature": temperature,
+            "max_output_tokens": max_tokens,
         }
 
         response = self.model.generate_content(prompt, generation_config=generation_config)
         usage = getattr(response, "usage_metadata", None)
-        if usage is not None:
-            record_usage(
-                provider="gemini",
-                model=self.config.model,
-                prompt_tokens=getattr(usage, "prompt_token_count", 0) or 0,
-                completion_tokens=getattr(usage, "candidates_token_count", 0) or 0,
-            )
-        return response.text.strip()
+        pt = getattr(usage, "prompt_token_count", 0) or 0 if usage else 0
+        ct = getattr(usage, "candidates_token_count", 0) or 0 if usage else 0
+        content = response.text.strip()
+        record_usage(
+            provider="gemini", model=self.config.model,
+            prompt_tokens=pt, completion_tokens=ct,
+        )
+        messages = [{"role": "user", "content": prompt}]
+        if system_message:
+            messages.insert(0, {"role": "system", "content": system_message})
+        _log_interaction("gemini", self.config.model, messages, content, pt, ct)
+        return content
 
     def chat_with_messages(
         self,
@@ -394,6 +429,7 @@ class OllamaClient(BaseLLMClient):
     ) -> str:
         import requests
 
+        temperature, max_tokens = self._resolve_params(temperature, max_tokens)
         response = requests.post(
             f"{self.base_url}/api/chat",
             json={
@@ -401,23 +437,28 @@ class OllamaClient(BaseLLMClient):
                 "messages": messages,
                 "stream": False,
                 "options": {
-                    "temperature": temperature or self.config.temperature,
-                    "num_predict": max_tokens or self.config.max_tokens,
+                    "temperature": temperature,
+                    "num_predict": max_tokens,
                 }
-            }
+            },
+            timeout=300,
         )
         response.raise_for_status()
         data = response.json()
         prompt_tokens = data.get("prompt_eval_count") or 0
         completion_tokens = data.get("eval_count") or 0
-        if prompt_tokens or completion_tokens:
-            record_usage(
-                provider="ollama",
-                model=self.config.model,
-                prompt_tokens=prompt_tokens,
-                completion_tokens=completion_tokens,
-            )
-        return data["message"]["content"].strip()
+        content = data["message"]["content"].strip()
+        record_usage(
+            provider="ollama",
+            model=self.config.model,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+        )
+        _log_interaction(
+            "ollama", self.config.model, messages, content,
+            prompt_tokens, completion_tokens,
+        )
+        return content
 
 
 class OpenRouterClient(BaseLLMClient):
@@ -456,21 +497,22 @@ class OpenRouterClient(BaseLLMClient):
         temperature: float | None = None,
         max_tokens: int | None = None,
     ) -> str:
+        temperature, max_tokens = self._resolve_params(temperature, max_tokens)
         response = self.client.chat.completions.create(
             model=self.config.model,
             messages=messages,
-            temperature=temperature or self.config.temperature,
-            max_tokens=max_tokens or self.config.max_tokens,
+            temperature=temperature,
+            max_tokens=max_tokens,
         )
         usage = getattr(response, "usage", None)
         content = response.choices[0].message.content.strip()
         pt = getattr(usage, "prompt_tokens", 0) or 0 if usage else 0
         ct = getattr(usage, "completion_tokens", 0) or 0 if usage else 0
-        if usage is not None:
-            record_usage(
-                provider="openrouter", model=self.config.model,
-                prompt_tokens=pt, completion_tokens=ct,
-            )
+        # Record even usage-less responses so the call count stays honest
+        record_usage(
+            provider="openrouter", model=self.config.model,
+            prompt_tokens=pt, completion_tokens=ct,
+        )
         _log_interaction("openrouter", self.config.model, messages, content, pt, ct)
         return content
 
@@ -527,7 +569,10 @@ def get_llm_client(
             if model is None:
                 model = choice.model
 
-    provider = provider or os.getenv("LLM_PROVIDER", "openai")
+    # Default matches LLMConfig.provider and .env.example — previously this
+    # fell back to "openai" while the router handed out Groq model names,
+    # producing model-not-found errors when LLM_PROVIDER was unset.
+    provider = provider or os.getenv("LLM_PROVIDER", "groq")
 
     if provider not in PROVIDERS:
         raise ValueError(f"Unknown provider: {provider}. Available: {list(PROVIDERS.keys())}")

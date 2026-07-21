@@ -166,3 +166,24 @@ class TestGetLlmClientWithRole:
             role="documenter", provider="openai", model="gpt-4o-mini"
         )
         assert captured["model"] == "gpt-4o-mini"
+
+
+class TestSchemeParsing:
+    def test_scheme_form_parses_provider_correctly(self):
+        from core.model_router import _parse_model_string
+        choice = _parse_model_string("mlx://path/to/adapter")
+        assert choice.provider == "mlx"
+        assert choice.model == "path/to/adapter"
+
+    def test_plain_slash_form_still_works(self):
+        from core.model_router import _parse_model_string
+        choice = _parse_model_string("groq/llama-3.3-70b-versatile")
+        assert choice.provider == "groq"
+        assert choice.model == "llama-3.3-70b-versatile"
+
+    def test_inline_comment_stripped_from_yaml_value(self, tmp_path):
+        from core.model_router import _read_yaml_routes
+        cfg = tmp_path / "routes.yml"
+        cfg.write_text("planner: groq/llama-3.3-70b-versatile  # the fast one\n")
+        routes = _read_yaml_routes(str(cfg))
+        assert routes["planner"].model == "llama-3.3-70b-versatile"

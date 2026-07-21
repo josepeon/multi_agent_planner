@@ -188,7 +188,12 @@ def setup_logging(
         json_format: Use JSON format for file output
     """
     root = logging.getLogger()
-    root.setLevel(getattr(logging, level.upper()))
+    # Tolerate bad LOG_LEVEL values (WARN, TRACE, typos): this runs at import
+    # time, so raising here would take down every module importing core.
+    level_name = level.upper()
+    if level_name == "WARN":
+        level_name = "WARNING"
+    root.setLevel(getattr(logging, level_name, logging.INFO))
 
     # Clear existing handlers
     root.handlers = []
@@ -233,13 +238,16 @@ def get_logger(name: str) -> AgentLogger:
 # Default Configuration
 # ===========================================
 
-# Set up default logging on module import
+# Set up default logging on module import — but only when nothing else has
+# configured logging yet, so importing core doesn't silently discard a host
+# application's handlers.
 _default_level = os.environ.get("LOG_LEVEL", "INFO")
 _default_file = os.environ.get("LOG_FILE", None)
 _json_format = os.environ.get("LOG_JSON", "false").lower() == "true"
 
-setup_logging(
-    level=_default_level,
-    log_file=_default_file,
-    json_format=_json_format,
-)
+if not logging.getLogger().handlers:
+    setup_logging(
+        level=_default_level,
+        log_file=_default_file,
+        json_format=_json_format,
+    )

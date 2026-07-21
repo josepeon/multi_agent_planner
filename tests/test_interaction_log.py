@@ -134,3 +134,26 @@ class TestExportForSia:
         assert count == 0
         assert out.exists()
         assert out.read_text() == ""
+
+
+class TestSchemaDrift:
+    def test_read_all_survives_bad_rows(self, tmp_path):
+        """An old- or future-schema row must not abort the whole read."""
+        import json as _json
+
+        from core.interaction_log import InteractionLog
+
+        path = tmp_path / "log.jsonl"
+        with open(path, "w") as f:
+            f.write(_json.dumps({
+                "role": "developer", "provider": "groq", "model": "m",
+                "system_message": "s", "user_message": "u", "response": "r",
+                "prompt_tokens": 1, "completion_tokens": 1,
+                "timestamp": 0.0,
+            }) + "\n")
+            f.write(_json.dumps({"legacy_field": True}) + "\n")
+            f.write("not json at all\n")
+
+        rows = InteractionLog(path=str(path)).read_all()
+        assert len(rows) == 1
+        assert rows[0].role == "developer"

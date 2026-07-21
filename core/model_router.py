@@ -54,8 +54,14 @@ _BUILTIN_DEFAULTS: dict[str, ModelChoice] = {
 
 
 def _parse_model_string(raw: str) -> ModelChoice:
-    """Parse 'provider/model' or 'model' into a ModelChoice."""
+    """Parse 'provider://model', 'provider/model', or 'model' into a ModelChoice."""
     raw = raw.strip()
+    # Scheme form first: 'mlx://path/to/adapter' must yield provider='mlx',
+    # not provider='mlx:' — naive first-'/' splitting broke the documented
+    # fine-tuned-adapter routing format.
+    if "://" in raw:
+        provider, model = raw.split("://", 1)
+        return ModelChoice(provider=provider.strip(), model=model.strip())
     if "/" in raw:
         provider, model = raw.split("/", 1)
         return ModelChoice(provider=provider.strip(), model=model.strip())
@@ -80,7 +86,11 @@ def _read_yaml_routes(path: str) -> dict[str, ModelChoice]:
                 if ":" not in line:
                     continue
                 key, value = line.split(":", 1)
-                routes[key.strip().lower()] = _parse_model_string(value.strip())
+                # Strip inline comments: 'planner: groq/llama  # fast'
+                value = value.split("#", 1)[0].strip()
+                if not value:
+                    continue
+                routes[key.strip().lower()] = _parse_model_string(value)
     except FileNotFoundError:
         pass
     return routes

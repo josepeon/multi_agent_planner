@@ -15,7 +15,13 @@ from typing import Any
 from core.memory import Memory
 from core.task_schema import Task
 
-_FENCED_BLOCK_RE = re.compile(r"```[a-zA-Z0-9_+-]*\n(.*?)```", re.DOTALL)
+# Fences only count when they open a line — a ``` inside a string literal
+# or docstring must not trigger extraction/truncation.
+_FENCE_LINE_RE = re.compile(r"^```", re.MULTILINE)
+_FENCED_BLOCK_RE = re.compile(
+    r"^```[a-zA-Z0-9_+-]*[ \t]*\n(.*?)^```", re.DOTALL | re.MULTILINE
+)
+_FENCE_OPEN_RE = re.compile(r"^```[a-zA-Z0-9_+-]*[ \t]*\n?", re.MULTILINE)
 
 
 def strip_code_fences(text: str) -> str:
@@ -26,19 +32,14 @@ def strip_code_fences(text: str) -> str:
     at all (returned stripped).
     """
     text = text.strip()
-    if "```" not in text:
+    if not _FENCE_LINE_RE.search(text):
         return text
     match = _FENCED_BLOCK_RE.search(text)
     if match:
         return match.group(1).strip()
-    # Unclosed fence: drop the opening fence line, keep the rest
-    after = text.split("```", 1)[1]
-    if "\n" in after:
-        after = after.split("\n", 1)[1]
-    else:
-        # ```json style tag with no newline — nothing usable before EOL
-        after = ""
-    return after.strip()
+    # Unclosed fence: drop everything up to and including the opening fence
+    parts = _FENCE_OPEN_RE.split(text, maxsplit=1)
+    return parts[1].strip() if len(parts) > 1 else text
 
 
 def extract_json(text: str) -> Any:

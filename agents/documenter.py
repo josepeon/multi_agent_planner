@@ -129,14 +129,5 @@ Return the documented code:"""
 
     def _clean_code(self, code: str) -> str:
         """Clean up LLM response."""
-        code = code.strip()
-
-        if code.startswith("```python"):
-            code = code[9:]
-        elif code.startswith("```"):
-            code = code[3:]
-
-        if code.endswith("```"):
-            code = code[:-3]
-
-        return code.strip()
+        from agents.base_agent import strip_code_fences
+        return strip_code_fences(code)

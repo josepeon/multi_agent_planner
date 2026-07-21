@@ -34,7 +34,7 @@ from core.checkpoints import (
 )
 from core.cost_tracker import attribute, begin_run
 from core.events import emit as emit_event
-from core.events import get_bus
+from core.events import ends_bus, get_bus
 from core.memory import Memory
 from core.memory_store import ProjectMemory, project_id_for
 from core.shared_context import SharedContext, get_shared_context, reset_shared_context
@@ -229,8 +229,11 @@ def develop_with_retry(
 
         # Get critic feedback for retry
         if attempt < max_retries - 1:  # Don't get feedback on last attempt
+            # develop() returns a dict; the critic must see the code string,
+            # not the dict repr (which polluted both prompt and cache key).
+            code_str = code.get("code", "") if isinstance(code, dict) else code
             with attribute("critic"):
-                critique = critic.review(task.description, code, qa_result.get('result'))
+                critique = critic.review(task.description, code_str, qa_result.get('result'))
             feedback = f"Previous attempt failed. Critic feedback:\n{critique}\n\nPlease fix these issues."
             print(f"\n  Critic Feedback (will retry):\n  {critique[:200]}...")
 
@@ -244,6 +247,7 @@ def develop_with_retry(
     }
 
 
+@ends_bus
 def run_pipeline(
     task: Task,
     save_path: str = "output/session_log.json",
@@ -418,7 +422,9 @@ def run_pipeline(
     if arch_text:
         project_mem.remember(arch_text[:1000], kind="architecture", tags=["v1"])
 
-    session_log = {"prompt": original_prompt, "architecture": architecture.description, "tasks": []}
+    # arch_text (not .description): a checkpoint EditDecision can replace the
+    # artifact with a plain string, which has no .description attribute.
+    session_log = {"prompt": original_prompt, "architecture": arch_text, "tasks": []}
 
     passed_count = 0
     failed_count = 0
@@ -610,4 +616,4 @@ run_orchestrator = run_pipeline
 
 if __name__ == "__main__":
     user_input = input("Enter your project description: ")
-    run_pipeline(user_input)
+    run_pipeline(Task(id=0, description=user_input))

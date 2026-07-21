@@ -365,11 +365,15 @@ Create the multi-file project structure as JSON:"""
                 local_defs = definitions.get(filename, {"classes": set(), "functions": set(), "enums": set()})
                 local_names = local_defs["classes"] | local_defs["functions"] | local_defs["enums"]
 
+                import builtins as _builtins
                 for node in ast.walk(tree):
                     if isinstance(node, ast.Name):
                         name = node.id
-                        # Skip builtins and already defined
-                        if name in local_names or name in dir(__builtins__):
+                        # Skip builtins and already defined. (Must use the
+                        # builtins module: in an imported module __builtins__
+                        # is a dict, so dir(__builtins__) listed dict methods
+                        # and never actually skipped len/str/range/... .)
+                        if name in local_names or hasattr(_builtins, name):
                             continue
 
                         # Check if defined in another file

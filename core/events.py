@@ -179,3 +179,25 @@ def new_job_id() -> str:
 def emit(job_id: str, event_type: str, payload: dict[str, Any] | None = None) -> Event:
     """Convenience: emit to the module-level bus."""
     return _bus.emit(job_id, event_type, payload)
+
+
+def ends_bus(fn):
+    """Decorator for pipeline entry points: always signal end-of-stream for
+    the run's job_id, even when the pipeline raises. Without this, a crashed
+    run left SSE subscribers blocked on a queue forever. ``end`` is
+    idempotent, so the pipeline's own success-path ``end`` call is fine.
+
+    The wrapped function must take ``job_id`` as a keyword argument.
+    """
+    import functools
+
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        try:
+            return fn(*args, **kwargs)
+        finally:
+            jid = kwargs.get("job_id")
+            if jid:
+                _bus.end(jid)
+
+    return wrapper

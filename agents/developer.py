@@ -6,22 +6,18 @@ Generates and revises Python code based on task descriptions using LLM.
 Includes sandboxed execution for validation.
 """
 
-import re
 from typing import Any
 
+from agents.base_agent import strip_code_fences
 from core.cache import BoundedCache
 from core.languages import LanguageProfile, get_profile
 from core.llm_provider import BaseLLMClient, get_llm_client
 from core.sandbox import execute_code_safely
 from core.task_schema import Task
 
-
-def clean_code_block(code: str) -> str:
-    """Remove triple backtick Markdown formatting if present."""
-    if code.startswith("```"):
-        code = re.sub(r"^```[a-zA-Z]*\n", "", code)  # Remove opening triple backticks with language
-        code = re.sub(r"\n```$", "", code)           # Remove closing triple backticks
-    return code.strip()
+# Backwards-compatible alias — the canonical implementation lives in
+# base_agent and also handles fences with surrounding prose.
+clean_code_block = strip_code_fences
 
 
 class DeveloperAgent:
@@ -101,9 +97,10 @@ class DeveloperAgent:
                     temperature=temperature,
                     max_tokens=max_tokens,
                 )
+                # strip_code_fences extracts the fenced block if present.
+                # (The old extra split on the literal "To execute" silently
+                # truncated any program whose docstring contained the phrase.)
                 code = clean_code_block(code)
-                # Optionally remove markdown-like instructional content
-                code = code.split("```")[0].split("To execute")[0].strip()
 
                 # Check if code is syntactically complete
                 try:
@@ -213,11 +210,9 @@ class DeveloperAgent:
         Uses sandboxed execution for safety.
         """
         # Pass feedback to write_code if provided (from orchestrator retry loop)
+        # (No side-write to a shared generated_code.py here: parallel dev
+        # nodes raced on it and the code is already returned + session-logged.)
         task_code = self.write_code(task.description, feedback_message=feedback_message)
-
-        # Save generated code for reference
-        with open("generated_code.py", "w") as f:
-            f.write(task_code)
 
         # Execute in sandbox
         exec_result = self._execute_code(task_code)
@@ -231,9 +226,6 @@ class DeveloperAgent:
         if not passed and critic:
             feedback = critic.review(task.description, task_code, output)
             revised_code = self.revise_code(task, task_code, feedback)
-
-            with open("generated_code.py", "w") as f:
-                f.write(revised_code)
 
             # Execute revised code in sandbox
             exec_result = self._execute_code(revised_code)

@@ -7,7 +7,6 @@ If the sandbox has already run the code, trust those results.
 Only use LLM for static code review when no execution data is available.
 """
 
-import json
 from typing import Any
 
 from core.llm_provider import BaseLLMClient, get_llm_client
@@ -105,15 +104,11 @@ class QAAgent:
                 max_tokens=max_tokens
             )
 
-            # Extract JSON from response (handle markdown code blocks)
-            response_text = response.strip()
-            if response_text.startswith("```"):
-                response_text = response_text.split("```")[1]
-                if response_text.startswith("json"):
-                    response_text = response_text[4:]
-            response_text = response_text.strip()
-
-            parsed: dict[str, Any] = json.loads(response_text)
+            # Extract JSON from response (handles fences and surrounding prose)
+            from agents.base_agent import extract_json
+            parsed = extract_json(response)
+            if not isinstance(parsed, dict):
+                raise ValueError(f"QA response was not JSON: {response[:200]}")
 
             result: dict[str, str] = {
                 "status": "passed" if parsed.get("success", False) else "failed",

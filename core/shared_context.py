@@ -132,10 +132,14 @@ class SharedContext:
 
         try:
             tree = ast.parse(code)
-            for node in ast.walk(tree):
+            # Top-level nodes only: ast.walk recursed into class bodies, so
+            # every method got advertised as an "Already Defined Function",
+            # and the developer prompt then told later tasks not to redefine
+            # (and to assume importable) names like add_task.
+            for node in ast.iter_child_nodes(tree):
                 if isinstance(node, ast.ClassDef):
                     classes.append(node.name)
-                elif isinstance(node, ast.FunctionDef):
+                elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                     functions.append(node.name)
         except SyntaxError:
             pass
@@ -257,20 +261,6 @@ class SharedContext:
             return "No previous context. This is the first task."
 
         return "\n\n".join(summary_parts)
-
-    def get_all_code(self) -> str:
-        """Get all generated code combined (for final assembly)."""
-        all_imports = sorted(self.imports)
-        all_classes = list(self.defined_classes.values())
-        all_functions = [v for k, v in self.defined_functions.items() if k != 'main']
-
-        parts = []
-        if all_imports:
-            parts.append("\n".join(all_imports))
-        parts.extend(all_classes)
-        parts.extend(all_functions)
-
-        return "\n\n".join(parts)
 
     def reset(self):
         """Reset the context for a new session."""

@@ -105,37 +105,5 @@ Output ONLY the pytest code:"""
 
     def _clean_code(self, code: str) -> str:
         """Clean up LLM response to extract pure Python code."""
-        code = code.strip()
-
-        # Remove markdown code blocks
-        if code.startswith("```python"):
-            code = code[9:]
-        elif code.startswith("```"):
-            code = code[3:]
-
-        if code.endswith("```"):
-            code = code[:-3]
-
-        return code.strip()
-
-    def generate_tests_for_session(self, session_log: dict) -> str:
-        """
-        Generate tests for all code in a session.
-
-        Args:
-            session_log: The session log containing all generated code
-
-        Returns:
-            Combined pytest test code
-        """
-        all_code = []
-        for task in session_log.get("tasks", []):
-            code = task.get("code", "")
-            if code and task.get("status") == "complete":
-                all_code.append(code)
-
-        if not all_code:
-            return "# No code to test"
-
-        combined_code = "\n\n".join(all_code)
-        return self.generate_tests(combined_code)
+        from agents.base_agent import strip_code_fences
+        return strip_code_fences(code)

@@ -38,6 +38,7 @@ from agents.documenter import DocumenterAgent
 from agents.integrator import IntegratorAgent
 from agents.planner import PlannerAgent
 from agents.qa import QAAgent
+from agents.researcher import ResearcherAgent
 from agents.test_generator import TestGeneratorAgent
 from core import cost_tracker
 from core.checkpoints import (
@@ -53,7 +54,7 @@ from core.checkpoints import (
 )
 from core.cost_tracker import attribute, begin_run
 from core.events import emit as emit_event
-from core.events import get_bus
+from core.events import ends_bus, get_bus
 from core.memory import Memory
 from core.pipeline_graph import (
     SKIPPED,
@@ -132,9 +133,12 @@ def _develop_with_retry_node(
             }
 
         if attempt < MAX_DEV_RETRIES - 1:
+            # develop() returns a dict; the critic must see the code string,
+            # not the dict repr (which polluted both prompt and cache key).
+            code_str = code.get("code", "") if isinstance(code, dict) else code
             with attribute("critic"):
                 critique = critic.review(
-                    task.description, code, qa_result.get("result")
+                    task.description, code_str, qa_result.get("result")
                 )
             feedback = (
                 f"Previous attempt failed. Critic feedback:\n{critique}\n\nPlease fix these issues."
@@ -163,6 +167,7 @@ def build_pipeline_graph(
     documenter: DocumenterAgent,
     shared_context: SharedContext,
     checkpoint_handler: CheckpointHandler | None = None,
+    researcher: ResearcherAgent | None = None,
 ) -> PipelineGraph:
     """Construct the DAG.
 
@@ -215,7 +220,20 @@ def build_pipeline_graph(
 
     def architect_run(inputs: dict[str, Any]) -> dict[str, Any]:
         tasks: list[Task] = inputs["plan"]
-        descriptions = [t.description for t in tasks]
+        # Tolerate checkpoint-edited plans that replaced Tasks with strings
+        descriptions = [
+            t.description if isinstance(t, Task) else str(t) for t in tasks
+        ]
+
+        # Researcher stage — parity with the linear orchestrator. No-op
+        # (empty brief) when no search backend is configured.
+        research_brief_text = ""
+        if researcher is not None:
+            with attribute("researcher"):
+                research_brief = researcher.research(prompt, descriptions)
+            if not research_brief.empty:
+                research_brief_text = research_brief.render()
+
         arch_hint = ""
         architecture = None
         for regen in range(MAX_CHECKPOINT_REGEN_TRIES + 1):
@@ -223,6 +241,7 @@ def build_pipeline_graph(
                 architecture = architect.design(
                     prompt + (f"\n\nUser hint: {arch_hint}" if arch_hint else ""),
                     descriptions,
+                    research_brief=research_brief_text,
                 )
             artifact, status = _apply_checkpoint(
                 handler,
@@ -264,7 +283,9 @@ def build_pipeline_graph(
         new_nodes.append(
             PipelineNode(
                 id="integrate",
-                run=lambda inputs, tasks=tasks: _integrate(inputs, tasks, integrator, prompt),
+                run=lambda inputs, tasks=tasks, architecture=architecture: _integrate(
+                    inputs, tasks, integrator, prompt, architecture
+                ),
                 depends_on=[f"dev_{t.id}" for t in tasks],
                 parallel=False,
                 role="integrator",
@@ -324,9 +345,15 @@ def _integrate(
     tasks: list[Task],
     integrator: IntegratorAgent,
     prompt: str,
+    architecture: Any = None,
 ) -> dict[str, Any]:
     """Build a session_log from dev results, then integrate."""
-    session_log: dict[str, Any] = {"prompt": prompt, "tasks": []}
+    session_log: dict[str, Any] = {
+        "prompt": prompt,
+        # Parity with the linear orchestrator's session_log
+        "architecture": str(getattr(architecture, "description", architecture or "")),
+        "tasks": [],
+    }
     for task in tasks:
         dev = inputs.get(f"dev_{task.id}")
         if dev is SKIPPED or dev is None:
@@ -346,7 +373,8 @@ def _integrate(
             "task": task.description,
             "code": code_str,
             "result": code.get("result") if isinstance(code, dict) else "",
-            "status": "complete" if dev["passed"] else "failed",
+            # "passed"/"failed" — same vocabulary as the linear orchestrator
+            "status": "passed" if dev["passed"] else "failed",
             "qa_result": dev["qa_result"],
             "critique": dev["critique"],
             "attempts": dev["attempts"],
@@ -401,6 +429,7 @@ def _run_tests(inputs: dict[str, Any]) -> dict[str, Any]:
     return test_result.as_dict()
 
 
+@ends_bus
 def run_pipeline_dag(
     prompt: str,
     *,
@@ -461,6 +490,7 @@ def run_pipeline_dag(
     integrator = IntegratorAgent()
     test_generator = TestGeneratorAgent()
     documenter = DocumenterAgent()
+    researcher = ResearcherAgent()
 
     graph = build_pipeline_graph(
         prompt,
@@ -474,6 +504,7 @@ def run_pipeline_dag(
         documenter=documenter,
         shared_context=shared_context,
         checkpoint_handler=checkpoint_handler or get_handler_from_env(),
+        researcher=researcher,
     )
 
     result = graph.execute(

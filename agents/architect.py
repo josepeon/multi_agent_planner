@@ -11,8 +11,7 @@ Creates a high-level design before coding begins:
 This gives the Developer agent a blueprint to follow.
 """
 
-import json
-
+from agents.base_agent import extract_json
 from core.llm_provider import BaseLLMClient, get_llm_client
 from core.memory_store import UserMemory
 from core.shared_context import Architecture, SharedContext, get_shared_context
@@ -129,20 +128,14 @@ Design the architecture:"""
             return Architecture(description=f"Failed to create architecture: {str(e)}")
 
     def _parse_architecture(self, output: str) -> Architecture:
-        """Parse LLM output into Architecture object."""
+        """Parse LLM output into Architecture object.
 
-        # Clean up the output - remove markdown code blocks if present
-        output = output.strip()
-        if output.startswith("```"):
-            # Remove markdown code fence
-            lines = output.split("\n")
-            # Find start and end of JSON
-            start_idx = 1 if lines[0].startswith("```") else 0
-            end_idx = len(lines) - 1 if lines[-1].strip() == "```" else len(lines)
-            output = "\n".join(lines[start_idx:end_idx])
-
-        try:
-            data = json.loads(output)
+        Uses the shared extract_json helper, which tolerates fences and
+        leading/trailing prose — a reply of valid JSON plus a closing
+        sentence used to silently collapse the whole design to a text blob.
+        """
+        data = extract_json(output)
+        if isinstance(data, dict):
             return Architecture(
                 description=data.get("description", ""),
                 files=data.get("files", []),
@@ -150,10 +143,9 @@ Design the architecture:"""
                 interfaces=data.get("interfaces", {}),
                 dependencies=data.get("dependencies", {})
             )
-        except json.JSONDecodeError as e:
-            print(f"  Failed to parse architecture JSON: {e}")
-            print(f"  Raw output: {output[:500]}...")
-            return Architecture(description=output[:500])
+        print("  Failed to parse architecture JSON")
+        print(f"  Raw output: {output[:500]}...")
+        return Architecture(description=output[:500])
 
     def get_design_summary(self) -> str:
         """Get a human-readable summary of the architecture."""

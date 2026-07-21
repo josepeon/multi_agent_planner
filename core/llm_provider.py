@@ -150,9 +150,17 @@ class OpenAIClient(BaseLLMClient):
 
     def __init__(self, config: LLMConfig):
         super().__init__(config)
-        from openai import OpenAI
+        # Defer the missing-key failure to call time: agents construct their
+        # clients eagerly, and the OpenAI SDK raises when api_key is None —
+        # which would make the whole package unusable (and untestable)
+        # without a key in the environment.
+        api_key = os.getenv("OPENAI_API_KEY")
+        if api_key:
+            from openai import OpenAI
 
-        self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+            self.client = OpenAI(api_key=api_key)
+        else:
+            self.client = None
 
     def chat(
         self,
@@ -173,6 +181,8 @@ class OpenAIClient(BaseLLMClient):
         temperature: float | None = None,
         max_tokens: int | None = None,
     ) -> str:
+        if self.client is None:
+            raise RuntimeError("OPENAI_API_KEY is not set — export it or add it to .env")
         temperature, max_tokens = self._resolve_params(temperature, max_tokens)
         response = self.client.chat.completions.create(
             model=self.config.model,
@@ -230,10 +240,14 @@ class GroqClient(BaseLLMClient):
         self._rate_limited_until: dict[str, float] = {}  # model -> retry-after ts
         try:
             from groq import Groq
-
-            self.client = Groq(api_key=os.getenv("GROQ_API_KEY"))
         except ImportError as e:
             raise ImportError("Please install groq: pip install groq") from e
+        # Defer the missing-key failure to call time: agents construct their
+        # clients eagerly, and groq>=1.0 raises when api_key is None — which
+        # would make the whole package unusable (and untestable) without a
+        # key in the environment.
+        api_key = os.getenv("GROQ_API_KEY")
+        self.client = Groq(api_key=api_key) if api_key else None
 
     def _is_rate_limited(self, model: str) -> bool:
         import time
@@ -279,6 +293,8 @@ class GroqClient(BaseLLMClient):
         temperature: float | None = None,
         max_tokens: int | None = None,
     ) -> str:
+        if self.client is None:
+            raise RuntimeError("GROQ_API_KEY is not set — export it or add it to .env")
         last_error = None
         temperature, max_tokens = self._resolve_params(temperature, max_tokens)
 
@@ -492,11 +508,14 @@ class OpenRouterClient(BaseLLMClient):
 
     def __init__(self, config: LLMConfig):
         super().__init__(config)
-        from openai import OpenAI
+        # Deferred like the other clients: no key -> fail at call time.
+        api_key = os.getenv("OPENROUTER_API_KEY")
+        if api_key:
+            from openai import OpenAI
 
-        self.client = OpenAI(
-            api_key=os.getenv("OPENROUTER_API_KEY"), base_url="https://openrouter.ai/api/v1"
-        )
+            self.client = OpenAI(api_key=api_key, base_url="https://openrouter.ai/api/v1")
+        else:
+            self.client = None
 
     def chat(
         self,
@@ -517,6 +536,8 @@ class OpenRouterClient(BaseLLMClient):
         temperature: float | None = None,
         max_tokens: int | None = None,
     ) -> str:
+        if self.client is None:
+            raise RuntimeError("OPENROUTER_API_KEY is not set — export it or add it to .env")
         temperature, max_tokens = self._resolve_params(temperature, max_tokens)
         response = self.client.chat.completions.create(
             model=self.config.model,

@@ -34,9 +34,9 @@ everything, preserving the pre-checkpoint behavior.
 from __future__ import annotations
 
 import os
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Protocol
-
+from typing import Any, Protocol
 
 # ===========================================
 # Protocol types

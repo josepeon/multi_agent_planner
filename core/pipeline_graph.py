@@ -35,10 +35,10 @@ from __future__ import annotations
 
 import threading
 import time
+from collections.abc import Callable, Iterable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
-from typing import Any, Callable, Iterable
-
+from typing import Any
 
 # ===========================================
 # Sentinels & helper types
@@ -47,7 +47,7 @@ from typing import Any, Callable, Iterable
 class _Skipped:
     """Sentinel returned in place of a value for skipped nodes."""
 
-    _instance: "_Skipped | None" = None
+    _instance: _Skipped | None = None
 
     def __new__(cls):
         if cls._instance is None:
@@ -72,7 +72,7 @@ class Replan:
     They're added to the unscheduled set and picked up on the next layer.
     """
 
-    new_nodes: list["PipelineNode"]
+    new_nodes: list[PipelineNode]
 
 
 # ===========================================
@@ -150,14 +150,14 @@ class PipelineGraph:
         self._nodes: dict[NodeId, PipelineNode] = {}
         self._lock = threading.Lock()
 
-    def add(self, node: PipelineNode) -> "PipelineGraph":
+    def add(self, node: PipelineNode) -> PipelineGraph:
         with self._lock:
             if node.id in self._nodes:
                 raise ValueError(f"Node id already exists: {node.id}")
             self._nodes[node.id] = node
         return self
 
-    def add_many(self, nodes: Iterable[PipelineNode]) -> "PipelineGraph":
+    def add_many(self, nodes: Iterable[PipelineNode]) -> PipelineGraph:
         for n in nodes:
             self.add(n)
         return self
@@ -179,10 +179,7 @@ class PipelineGraph:
                         f"Node '{node.id}' depends on unknown node '{dep}'"
                     )
         # Cycle check via Kahn's algorithm
-        indeg = {nid: 0 for nid in self._nodes}
-        for n in self._nodes.values():
-            for d in n.depends_on:
-                indeg[n.id] += 1
+        indeg = {n.id: len(n.depends_on) for n in self._nodes.values()}
         ready = [nid for nid, n in indeg.items() if n == 0]
         seen = 0
         while ready:
@@ -226,7 +223,7 @@ class PipelineGraph:
             ready = self._ready_nodes(completed)
             if not ready:
                 # No progress possible — mark remaining nodes as failed.
-                for nid, node in self._nodes.items():
+                for nid in self._nodes:
                     if nid not in completed:
                         result.nodes[nid] = NodeResult(
                             node_id=nid,

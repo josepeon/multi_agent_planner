@@ -5,10 +5,7 @@ from __future__ import annotations
 import threading
 import time
 
-import pytest
-
-from core.events import END_OF_STREAM, EventBus, get_bus, new_job_id
-
+from core.events import EventBus, get_bus, new_job_id
 
 # ===========================================
 # Basics

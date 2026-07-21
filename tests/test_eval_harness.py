@@ -4,15 +4,13 @@ from __future__ import annotations
 
 import json
 
-import pytest
-
 from core.eval_harness import (
+    RUBRIC_REGISTRY,
+    CaseResult,
     EvalCase,
     EvalReport,
-    RUBRIC_REGISTRY,
     RubricContext,
     RubricResult,
-    CaseResult,
     evaluate_artifacts,
     load_corpus,
     register_rubric,
@@ -21,7 +19,6 @@ from core.eval_harness import (
     rubric_tests_pass,
     rubric_tests_present,
 )
-
 
 # ===========================================
 # Corpus loader

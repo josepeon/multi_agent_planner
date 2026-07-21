@@ -33,10 +33,9 @@ import math
 import os
 import re
 import time
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass, field
-from pathlib import Path
-from typing import Any, Iterable, Protocol
-
+from typing import Any, Protocol
 
 # ===========================================
 # Backend protocol
@@ -244,7 +243,7 @@ class ChromaVectorBackend:
         metas = result.get("metadatas", [[]])[0]
         # Chroma returns distance; convert to a similarity score
         dists = result.get("distances", [[1.0] * len(ids)])[0]
-        for eid, doc, meta, dist in zip(ids, docs, metas, dists):
+        for eid, doc, meta, dist in zip(ids, docs, metas, dists, strict=False):
             score = max(0.0, 1.0 - float(dist))
             tags = meta.pop("tags", "")
             entry = MemoryEntry(
@@ -266,6 +265,7 @@ class ChromaVectorBackend:
             raw.get("ids", []),
             raw.get("documents", []),
             raw.get("metadatas", []),
+            strict=False,
         ):
             tags = meta.pop("tags", "")
             entries.append(

@@ -34,9 +34,8 @@ import queue
 import threading
 import time
 import uuid
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from typing import Any
-
 
 # Sentinel pushed to signal end-of-stream for SSE consumers.
 END_OF_STREAM = object()
@@ -128,8 +127,7 @@ class EventBus:
             self._queues.setdefault(job_id, []).append(q)
             history = list(self._history.get(job_id, [])) if replay else []
 
-        for event in history:
-            yield event
+        yield from history
 
         while True:
             item = q.get()

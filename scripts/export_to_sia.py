@@ -33,8 +33,7 @@ from pathlib import Path
 # Ensure project root on the path so `from core...` works when invoked directly
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from core.interaction_log import enable_logging, export_for_sia, get_log
-
+from core.interaction_log import enable_logging, export_for_sia
 
 ALL_ROLES = [
     "planner", "architect", "developer", "critic",
@@ -156,6 +155,7 @@ def _run_distill(written: dict[str, Path]) -> int:
     """
     import asyncio
     import json
+
     from self_improving_agent.observability.cost_tracker import (
         begin_run,
         render_summary,

@@ -8,7 +8,6 @@ import pytest
 
 from core import interaction_log as il
 from core.interaction_log import (
-    Interaction,
     InteractionLog,
     disable_logging,
     enable_logging,

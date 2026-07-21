@@ -7,8 +7,8 @@ import pytest
 from core.checkpoints import (
     ApproveDecision,
     AutoApproveHandler,
-    CLIHandler,
     CheckpointPrompt,
+    CLIHandler,
     EditDecision,
     RegenerateDecision,
     ScriptedHandler,
@@ -19,7 +19,6 @@ from core.checkpoints import (
     render_plan,
 )
 from core.task_schema import Task
-
 
 # ===========================================
 # AutoApproveHandler

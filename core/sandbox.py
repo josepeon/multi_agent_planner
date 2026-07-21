@@ -41,7 +41,6 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-
 # Env var that hosted deployments should set to disable the crash-isolated
 # fallback path entirely. When set, code that requires the fallback is
 # reported as unverifiable instead of executed in a non-sandboxed subprocess.

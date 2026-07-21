@@ -40,7 +40,6 @@ from agents.planner import PlannerAgent
 from agents.qa import QAAgent
 from agents.test_generator import TestGeneratorAgent
 from core import cost_tracker
-from core.events import emit as emit_event, get_bus
 from core.checkpoints import (
     ApproveDecision,
     AutoApproveHandler,
@@ -53,17 +52,17 @@ from core.checkpoints import (
     render_plan,
 )
 from core.cost_tracker import attribute, begin_run
+from core.events import emit as emit_event
+from core.events import get_bus
 from core.memory import Memory
 from core.pipeline_graph import (
-    NodeResult,
+    SKIPPED,
     PipelineGraph,
     PipelineNode,
-    SKIPPED,
 )
 from core.shared_context import SharedContext, get_shared_context, reset_shared_context
 from core.task_schema import Task
 from core.test_runner import render_summary, run_generated_tests, write_result_log
-
 
 MAX_CHECKPOINT_REGEN_TRIES = 3
 

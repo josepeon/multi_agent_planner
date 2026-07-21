@@ -24,7 +24,6 @@ from agents.test_generator import TestGeneratorAgent
 from core import cost_tracker
 from core.checkpoints import (
     ApproveDecision,
-    AutoApproveHandler,
     CheckpointHandler,
     CheckpointPrompt,
     EditDecision,
@@ -33,14 +32,14 @@ from core.checkpoints import (
     render_architecture,
     render_plan,
 )
-from core.events import emit as emit_event, get_bus
-from core.memory_store import ProjectMemory, project_id_for
 from core.cost_tracker import attribute, begin_run
+from core.events import emit as emit_event
+from core.events import get_bus
 from core.memory import Memory
+from core.memory_store import ProjectMemory, project_id_for
 from core.shared_context import SharedContext, get_shared_context, reset_shared_context
 from core.task_schema import Task
 from core.test_runner import render_summary, run_generated_tests, write_result_log
-
 
 # Max times we re-run an agent on a single Regenerate decision before giving up
 # and accepting whatever was produced. Prevents an infinite loop if the user

@@ -31,7 +31,6 @@ import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
-
 # Files we never read in full (binaries, build artifacts, etc.)
 _BINARY_EXTS = {
     ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico", ".webp",

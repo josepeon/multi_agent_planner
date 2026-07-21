@@ -13,7 +13,6 @@ from core.web_search import (
     get_search_backend,
 )
 
-
 # ===========================================
 # Backend factory
 # ===========================================

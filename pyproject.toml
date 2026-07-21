@@ -4,13 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "multi-agent-planner"
-version = "1.0.0"
+version = "2.0.0"
 description = "LLM-powered multi-agent system for collaborative code generation"
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.10"
 authors = [
-    {name = "Jose Peon", email = "josepeon@example.com"}
+    {name = "Jose Peon", email = "josepeon1803@gmail.com"}
 ]
 keywords = [
     "llm",
@@ -74,6 +74,11 @@ multi-agent-planner = "main:main"
 Homepage = "https://github.com/josepeon/multi_agent_planner"
 Repository = "https://github.com/josepeon/multi_agent_planner"
 Issues = "https://github.com/josepeon/multi_agent_planner/issues"
+
+[tool.setuptools]
+# The console script is main:main — without this, a non-editable install
+# ships a broken entry point (main.py isn't inside any package).
+py-modules = ["main"]
 
 [tool.setuptools.packages.find]
 include = ["agents*", "core*"]

@@ -174,3 +174,48 @@ class TestOps:
         cache = BoundedCache(str(tmp_path / "c.json"))
         cache.set("foo", Foo(x=1, y="hi"))
         assert cache.get("foo") == {"x": 1, "y": "hi"}
+
+
+# ===========================================
+# Thread safety
+# ===========================================
+
+class TestThreadSafety:
+    def test_concurrent_get_set_no_corruption(self, tmp_path):
+        """Best-of-N and parallel DAG nodes hammer one shared cache; the
+        OrderedDict must not be mutated mid-iteration and the JSON file must
+        stay parseable."""
+        import json
+        import threading
+
+        path = tmp_path / "cache.json"
+        cache = BoundedCache(filepath=str(path), max_size=50)
+        errors = []
+
+        def worker(worker_id):
+            try:
+                for i in range(100):
+                    cache.set(f"k{worker_id}_{i % 20}", {"v": i})
+                    cache.get(f"k{(worker_id + 1) % 4}_{i % 20}")
+            except Exception as exc:  # noqa: BLE001
+                errors.append(exc)
+
+        threads = [threading.Thread(target=worker, args=(w,)) for w in range(4)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert errors == []
+        # File must be intact JSON after the storm
+        raw = json.loads(path.read_text())
+        assert raw["__cache_meta__"]["format"] == "bounded_cache_v1"
+        assert len(cache) <= 50
+
+    def test_save_is_atomic_no_tmp_leftovers(self, tmp_path):
+        path = tmp_path / "cache.json"
+        cache = BoundedCache(filepath=str(path))
+        cache.set("a", 1)
+        leftovers = [p for p in path.parent.iterdir() if p.suffix == ".tmp"]
+        assert leftovers == []
+        assert path.exists()

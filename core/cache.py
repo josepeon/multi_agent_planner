@@ -20,6 +20,8 @@ from __future__ import annotations
 
 import json
 import os
+import tempfile
+import threading
 import time
 from collections import OrderedDict
 from dataclasses import asdict
@@ -59,6 +61,12 @@ class BoundedCache:
         self.max_size = max_size
         self.ttl_seconds = ttl_seconds
 
+        # One agent instance (and thus one cache) is shared by every
+        # ThreadPoolExecutor worker in best-of-N and parallel DAG runs, so
+        # all state access must be lock-guarded. RLock because get/set call
+        # _save internally.
+        self._lock = threading.RLock()
+
         # OrderedDict preserves insertion order; we move keys to end on access
         # to implement LRU. Each value is stored as (timestamp, value).
         self._data: OrderedDict[str, tuple[float, Any]] = OrderedDict()
@@ -71,43 +79,48 @@ class BoundedCache:
     # ===========================================
 
     def get(self, key: str, default: Any = None) -> Any:
-        entry = self._data.get(key)
-        if entry is None:
-            return default
+        with self._lock:
+            entry = self._data.get(key)
+            if entry is None:
+                return default
 
-        ts, value = entry
-        if self._is_expired(ts):
-            del self._data[key]
-            self._save()
-            return default
+            ts, value = entry
+            if self._is_expired(ts):
+                del self._data[key]
+                self._save()
+                return default
 
-        # LRU bump: move to end
-        self._data.move_to_end(key)
-        return value
+            # LRU bump: move to end
+            self._data.move_to_end(key)
+            return value
 
     def set(self, key: str, value: Any) -> None:
         serialized = _serialize(value)
-        if key in self._data:
-            self._data.move_to_end(key)
-        self._data[key] = (time.time(), serialized)
+        with self._lock:
+            if key in self._data:
+                self._data.move_to_end(key)
+            self._data[key] = (time.time(), serialized)
 
-        # Evict oldest entries until we're under the size cap
-        while len(self._data) > self.max_size:
-            self._data.popitem(last=False)
+            # Evict oldest entries until we're under the size cap
+            while len(self._data) > self.max_size:
+                self._data.popitem(last=False)
 
-        self._save()
-
-    def delete(self, key: str) -> None:
-        if key in self._data:
-            del self._data[key]
             self._save()
 
+    def delete(self, key: str) -> None:
+        with self._lock:
+            if key in self._data:
+                del self._data[key]
+                self._save()
+
     def clear(self) -> None:
-        self._data.clear()
-        self._save()
+        with self._lock:
+            self._data.clear()
+            self._save()
 
     def __len__(self) -> int:
-        return len(self._data)
+        with self._lock:
+            return len(self._data)
 
     def __contains__(self, key: str) -> bool:
         # Respect TTL for membership testing
@@ -125,15 +138,16 @@ class BoundedCache:
         """
         if self.ttl_seconds is None:
             return 0
-        evicted = 0
-        for key in list(self._data.keys()):
-            ts, _ = self._data[key]
-            if self._is_expired(ts):
-                del self._data[key]
-                evicted += 1
-        if evicted:
-            self._save()
-        return evicted
+        with self._lock:
+            evicted = 0
+            for key in list(self._data.keys()):
+                ts, _ = self._data[key]
+                if self._is_expired(ts):
+                    del self._data[key]
+                    evicted += 1
+            if evicted:
+                self._save()
+            return evicted
 
     # ===========================================
     # Persistence
@@ -179,10 +193,12 @@ class BoundedCache:
             self._data.popitem(last=False)
 
     def _save(self) -> None:
+        # Callers hold self._lock (all mutators acquire it before calling).
         if not self.filepath:
             return
         try:
-            os.makedirs(os.path.dirname(self.filepath) or ".", exist_ok=True)
+            dirname = os.path.dirname(self.filepath) or "."
+            os.makedirs(dirname, exist_ok=True)
             payload = {
                 _META_KEY: {
                     "format": "bounded_cache_v1",
@@ -194,8 +210,18 @@ class BoundedCache:
                     for key, (ts, value) in self._data.items()
                 },
             }
-            with open(self.filepath, "w") as f:
-                json.dump(payload, f, indent=2)
+            # Write-then-rename so a crash mid-write can't corrupt the file.
+            fd, tmp_path = tempfile.mkstemp(dir=dirname, suffix=".tmp")
+            try:
+                with os.fdopen(fd, "w") as f:
+                    json.dump(payload, f, indent=2)
+                os.replace(tmp_path, self.filepath)
+            except BaseException:
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
+                raise
         except Exception as e:
             print(f"BoundedCache: failed to save {self.filepath}: {e}")
 

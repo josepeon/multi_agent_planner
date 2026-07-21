@@ -36,11 +36,11 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "pydantic>=2.0.0",
     "requests>=2.28.0",
-    "tqdm>=4.65.0",
     "groq>=1.0.0",
 ]
 
 [project.optional-dependencies]
+web = ["flask>=3.0.0"]
 openai = ["openai>=1.0.0"]
 gemini = ["google-generativeai>=0.8.0"]
 # Bridge to self-improving-agent. With this extra installed, the
@@ -55,6 +55,7 @@ sia = [
     "self-improving-agent @ git+https://github.com/oh-systems/self-improving-agent.git@main",
 ]
 all = [
+    "flask>=3.0.0",
     "openai>=1.0.0",
     "google-generativeai>=0.8.0",
     "self-improving-agent @ git+https://github.com/oh-systems/self-improving-agent.git@main",

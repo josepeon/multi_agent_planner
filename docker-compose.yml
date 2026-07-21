@@ -3,8 +3,6 @@
 # Start: docker compose up
 # Stop:  docker compose down
 
-version: '3.8'
-
 services:
   app:
     build:
@@ -26,7 +24,8 @@ services:
       - ./memory:/app/memory
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      # python:3.11-slim has no curl; use stdlib urllib instead
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/api/health')"]
       interval: 30s
       timeout: 10s
       retries: 3

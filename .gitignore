@@ -42,3 +42,7 @@ memory/*
 generated_code.py
 hello_world.py
 *.log
+
+# Eval artifacts (generated)
+evals/artifacts/
+evals/report.json

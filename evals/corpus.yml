@@ -2,7 +2,7 @@
 # Each case is a single prompt the pipeline must handle, plus the rubrics
 # the resulting artifacts are graded against.
 #
-# Run with `python -m evals.run` (see scripts/eval if added).
+# Run with `python -m evals.run` (or `--offline` to re-score existing artifacts).
 
 - id: cli_todo_click
   prompt: Build a CLI todo app with click that supports add, remove, list, and mark-complete

@@ -1,19 +1,18 @@
 """
-Cost & Token Tracking — re-export shim around ``self_improving_agent``.
+Cost & Token Tracking — re-export shim with a bundled fallback.
 
-MAP and SIA had nearly-identical cost tracker implementations. The canonical
-version now lives in ``self_improving_agent.observability.cost_tracker``;
-this module re-exports the same surface so existing MAP callers
-(``from core.cost_tracker import attribute, record_usage, ...``) continue to
-work unchanged.
+MAP and SIA had nearly-identical cost tracker implementations. When the
+optional ``self-improving-agent`` package is installed (``pip install -e
+'.[sia]'``), its canonical ``observability.cost_tracker`` is used. Without
+it, the bundled ``core._cost_tracker_local`` implementation (same public
+surface) takes over — SIA is an *extra*, and importing core must never
+require it. (A hard ImportError here previously broke every base install
+and kept CI red.)
 
 On import we register the MAP-specific pricing rows that SIA doesn't ship
-(Gemini variants, OpenRouter, Ollama wildcard, OpenAI gpt-4). SIA exposes a
-``register_price()`` extension point so this stays a clean addition rather
-than a fork.
-
-If/when SIA isn't installed, this module raises a clear ImportError pointing
-at the install command — matches the lazy-extra pattern used elsewhere.
+(Gemini variants, OpenRouter, Ollama wildcard, OpenAI gpt-4). Both
+implementations expose a ``register_price()`` extension point so this stays
+a clean addition rather than a fork.
 """
 
 from __future__ import annotations
@@ -35,11 +34,27 @@ try:
         render_summary,
         to_dict,
     )
-except ImportError as exc:
-    raise ImportError(
-        "core.cost_tracker depends on self-improving-agent. Install with:\n"
-        "    pip install -e '.[sia]'"
-    ) from exc
+
+    USING_SIA = True
+except ImportError:
+    from core._cost_tracker_local import (  # noqa: F401
+        BudgetExceededError,
+        CostTracker,
+        ModelPrice,
+        UsageRecord,
+        UsageTotals,
+        _current_role,
+        attribute,
+        begin_run,
+        get_price,
+        get_tracker,
+        record_usage,
+        register_price,
+        render_summary,
+        to_dict,
+    )
+
+    USING_SIA = False
 
 
 # ---------------------------------------------------------------------
